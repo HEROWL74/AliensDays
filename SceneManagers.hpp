@@ -6,8 +6,22 @@
 class SceneManagers
 {
 private:
+
+	enum class FadeState
+	{
+		None,
+		FadeOut,
+		FadeIn
+	};
+
+	double m_fadeTimer = 0.0;
+	FadeState m_fadeState = FadeState::None;
+	SceneType m_nextSceneType;
+
 	std::unique_ptr<SceneBase> m_currentScene;
 	SceneType m_currentSceneType;
+
+	
 
 public:
 	SceneManagers();

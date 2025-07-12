@@ -116,10 +116,23 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="CharacterSelectScene.cpp" />
+    <ClCompile Include="CoinSystem.cpp" />
+    <ClCompile Include="CreditScene.cpp" />
+    <ClCompile Include="EnemyBase.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="GameOverScene.cpp" />
     <ClCompile Include="GameScene.cpp" />
+    <ClCompile Include="HUDSystem.cpp" />
+    <ClCompile Include="NormalSlime.cpp" />
+    <ClCompile Include="OptionScene.cpp" />
+    <ClCompile Include="Player.cpp" />
+    <ClCompile Include="ResultScene.cpp" />
+    <ClCompile Include="SplashScene.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="SceneManagers.cpp" />
+    <ClCompile Include="Stage.cpp" />
+    <ClCompile Include="StarSystem.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -331,10 +344,24 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.hpp" />
+    <ClInclude Include="CharacterSelectScene.hpp" />
+    <ClInclude Include="CoinSystem.hpp" />
+    <ClInclude Include="CreditScene.hpp" />
+    <ClInclude Include="EnemyBase.hpp" />
     <ClInclude Include="Game.hpp" />
+    <ClInclude Include="GameOverScene.hpp" />
     <ClInclude Include="GameScene.hpp" />
+    <ClInclude Include="HUDSystem.hpp" />
+    <ClInclude Include="NormalSlime.hpp" />
+    <ClInclude Include="OptionScene.hpp" />
+    <ClInclude Include="Player.hpp" />
+    <ClInclude Include="PlayerColor.hpp" />
+    <ClInclude Include="ResultScene.hpp" />
     <ClInclude Include="SceneBase.hpp" />
     <ClInclude Include="SceneManagers.hpp" />
+    <ClInclude Include="SplashScene.hpp" />
+    <ClInclude Include="Stage.hpp" />
+    <ClInclude Include="StarSystem.hpp" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="TitleScene.hpp" />
   </ItemGroup>

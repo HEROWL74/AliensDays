@@ -3,6 +3,7 @@
 
 void Main()
 {
+	Profiler::EnableAssetCreationWarning(false);
 	// ゲームインスタンスの作成
 	Game game;
 

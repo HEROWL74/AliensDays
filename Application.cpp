@@ -19,7 +19,9 @@ bool Application::init()
 
 	// シーンマネージャーの初期化
 	m_sceneManager = std::make_unique<SceneManagers>();
-	m_sceneManager->init(SceneType::Title);
+	m_sceneManager->init(SceneType::Splash);  // 初期シーンをスプラッシュに変更
+
+	
 
 	m_isRunning = true;
 	return true;

@@ -4,8 +4,14 @@
 // シーンの種類
 enum class SceneType
 {
+	Splash,        // スプラッシュシーンを追加
 	Title,
-	Game
+	CharacterSelect, // キャラクターセレクトシーンを追加
+	Option,        // オプションシーンを追加
+	Credit,        // クレジットシーンを追加
+	Game,
+	GameOver,      // ゲームオーバーシーンを追加
+	Result         // リザルトシーンを追加
 };
 
 // シーンの基底クラス
