@@ -176,7 +176,6 @@ bool Stage::checkGoalCollision(const RectF& playerRect) const
 	return playerRect.intersects(goalRect);
 }
 
-
 void Stage::generateStageLayout()
 {
 	m_blocks.clear();
@@ -188,42 +187,55 @@ void Stage::generateStageLayout()
 
 void Stage::generateUnifiedStageLayout()
 {
-	// 統一されたステージレイアウト（全ステージ共通）
-	// 地形構造は同じで、テクスチャ（見た目）のみが変わる
+	// ★ 修正: 地面をより適切な位置に配置
+	// Scene::Height() = 600の場合、地面は下から4ブロック分（約256ピクセル）上に配置
+	const int groundLevel = STAGE_HEIGHT - 4; // 約13 (17-4)、ピクセル座標では832
 
-	// 1. メインの地面（3段構造）
-	createGroundSection(0, STAGE_HEIGHT - 3, STAGE_WIDTH, 3);
+	// 1. メインの地面（画面下部）
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
 
-	// 2. 左側エリアのプラットフォーム
-	createHorizontalPlatform(8, STAGE_HEIGHT - 7, 4);   // 左の低めプラットフォーム
-	createHorizontalPlatform(5, STAGE_HEIGHT - 10, 2);  // 左の高めプラットフォーム
+	// 2. 左側エリアの空中プラットフォーム
+	createAirPlatform(8, groundLevel - 4, 4);   // 地面から4ブロック上
+	createAirPlatform(5, groundLevel - 7, 3);   // 地面から7ブロック上
 
-	// 3. 中央エリアのプラットフォーム群
-	createHorizontalPlatform(20, STAGE_HEIGHT - 6, 6);  // 中央の大きなプラットフォーム
-	createHorizontalPlatform(18, STAGE_HEIGHT - 9, 3);  // 中央の高いプラットフォーム
-	createSinglePlatform(24, STAGE_HEIGHT - 12);        // 中央最高点
+	// 3. 中央エリアの空中プラットフォーム群
+	createAirPlatform(20, groundLevel - 3, 6);  // 地面から3ブロック上
+	createAirPlatform(18, groundLevel - 6, 3);  // 地面から6ブロック上
+	createAirPlatform(23, groundLevel - 9, 2);  // 地面から9ブロック上
 
-	// 4. 中央-右側の段階的プラットフォーム
-	createHorizontalPlatform(35, STAGE_HEIGHT - 5, 4);  // 段階1
-	createHorizontalPlatform(42, STAGE_HEIGHT - 7, 3);  // 段階2
-	createHorizontalPlatform(48, STAGE_HEIGHT - 9, 2);  // 段階3
+	// 4. 中央-右側の段階的空中プラットフォーム
+	createAirPlatform(35, groundLevel - 2, 4);  // 地面から2ブロック上
+	createAirPlatform(42, groundLevel - 4, 3);  // 地面から4ブロック上
+	createAirPlatform(48, groundLevel - 6, 2);  // 地面から6ブロック上
 
-	// 5. 右側エリアのプラットフォーム群
-	createHorizontalPlatform(58, STAGE_HEIGHT - 6, 5);  // 右の大きなプラットフォーム
-	createHorizontalPlatform(55, STAGE_HEIGHT - 10, 3); // 右の高いプラットフォーム
-	createSinglePlatform(60, STAGE_HEIGHT - 13);        // 右の最高点
+	// 5. 右側エリアの空中プラットフォーム群
+	createAirPlatform(58, groundLevel - 3, 5);  // 地面から3ブロック上
+	createAirPlatform(55, groundLevel - 7, 3);  // 地面から7ブロック上
+	createAirPlatform(59, groundLevel - 10, 2); // 地面から10ブロック上
 
-	// 6. 最終エリア
-	createHorizontalPlatform(70, STAGE_HEIGHT - 8, 4);  // 最終プラットフォーム
-	createHorizontalPlatform(68, STAGE_HEIGHT - 11, 2); // 最終高台
+	// 6. 最終エリアの空中プラットフォーム
+	createAirPlatform(70, groundLevel - 5, 4);  // 地面から5ブロック上
+	createAirPlatform(68, groundLevel - 8, 2);  // 地面から8ブロック上
 
-	// 7. ゴールフラグを統一位置に配置
-	const Vec2 goalPosition = Vec2((STAGE_WIDTH - 5) * BLOCK_SIZE, (STAGE_HEIGHT - 4) * BLOCK_SIZE);
+	// 7. ゴールフラグを地面上に配置
+	const Vec2 goalPosition = Vec2((STAGE_WIDTH - 5) * BLOCK_SIZE, groundLevel * BLOCK_SIZE - 32);
 	addGoalFlag(goalPosition);
-
-	Print << U"Generated unified stage layout for " << getStageName();
 }
 
+// 新しいメソッド：空中プラットフォーム専用（terrain_○○_block.pngを使用）
+void Stage::createAirPlatform(int startX, int y, int width)
+{
+	for (int i = 0; i < width; ++i)
+	{
+		StageBlock block;
+		block.terrain = m_terrainType;
+		block.blockType = BlockType::Simple; // 新しいBlockType
+		block.position = gridToWorldPosition(startX + i, y);
+		block.isSolid = true;
+		block.isGoal = false;
+		m_blocks.push_back(block);
+	}
+}
 
 void Stage::draw() const
 {
@@ -297,6 +309,20 @@ void Stage::drawBlock(const StageBlock& block) const
 	if (block.blockType == BlockType::Empty) return;
 
 	const Vec2 screenPos = worldToScreenPosition(block.position);
+
+	// 画面外カリング（最適化）
+	if (screenPos.x < -BLOCK_SIZE || screenPos.x > Scene::Width() + BLOCK_SIZE) return;
+
+	// Simpleブロック（空中プラットフォーム）の特別処理
+	if (block.blockType == BlockType::Simple)
+	{
+		const String simpleBlockKey = U"{}_simple"_fmt(getTerrainString(block.terrain));
+		if (m_terrainTextures.contains(simpleBlockKey))
+		{
+			m_terrainTextures.at(simpleBlockKey).draw(screenPos);
+			return;
+		}
+	}
 
 	// 通常のブロック描画
 	const Texture texture = getBlockTexture(block.terrain, block.blockType);
@@ -383,6 +409,20 @@ void Stage::drawCollisionDebug() const
 			}
 		}
 	}
+
+	// ★ 追加: デバッグ情報をテキストで表示
+	Font debugFont(16);
+	const String debugInfo = U"Ground Level: {} (pixel: {})"_fmt(
+		STAGE_HEIGHT - 4,
+		(STAGE_HEIGHT - 4) * BLOCK_SIZE
+	);
+	debugFont(debugInfo).draw(10, Scene::Height() - 60, ColorF(1.0, 1.0, 0.0));
+
+	const String blockInfo = U"Total Blocks: {} | Block Size: {}px"_fmt(
+		m_blocks.size(),
+		BLOCK_SIZE
+	);
+	debugFont(blockInfo).draw(10, Scene::Height() - 40, ColorF(1.0, 1.0, 0.0));
 #endif
 }
 
@@ -412,8 +452,9 @@ Vec2 Stage::getGroundPosition(double x) const
 		}
 	}
 
-	// ソリッドブロックが見つからない場合は画面下端
-	return Vec2(x, Scene::Height());
+	// ★ 修正: ソリッドブロックが見つからない場合は画面下端ではなく、想定される地面位置
+	const int groundLevel = STAGE_HEIGHT - 4;
+	return Vec2(x, groundLevel * BLOCK_SIZE);
 }
 
 Vec2 Stage::gridToWorldPosition(int gridX, int gridY) const
@@ -456,6 +497,7 @@ String Stage::getBlockTypeString(BlockType blockType) const
 	case BlockType::Top:         return U"top";
 	case BlockType::TopLeft:     return U"top_left";
 	case BlockType::TopRight:    return U"top_right";
+	case BlockType::Simple:      return U"block";
 	default: return U"center";
 	}
 }

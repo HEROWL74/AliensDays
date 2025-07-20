@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 
-// 敵の種類
+// 敵の種類（拡張版）
 enum class EnemyType
 {
 	Bee,
@@ -9,7 +9,8 @@ enum class EnemyType
 	Saw,
 	Ladybug,
 	SlimeBlock,
-	SpikeSlime
+	SpikeSlime,
+	Fly
 };
 
 // 敵の状態
@@ -106,6 +107,11 @@ public:
 	virtual String getStateString() const;
 	virtual String getTypeString() const;
 	virtual Texture getCurrentTexture() const = 0;
+
+	// 特殊能力チェック（新敵用）
+	virtual bool isDangerous() const { return m_isActive && m_isAlive; }
+	virtual bool canFly() const { return false; }
+	virtual bool hasSpikes() const { return false; }
 
 protected:
 	// 内部ヘルパーメソッド

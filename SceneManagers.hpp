@@ -6,7 +6,6 @@
 class SceneManagers
 {
 private:
-
 	enum class FadeState
 	{
 		None,
@@ -20,8 +19,6 @@ private:
 
 	std::unique_ptr<SceneBase> m_currentScene;
 	SceneType m_currentSceneType;
-
-	
 
 public:
 	SceneManagers();
@@ -41,6 +38,10 @@ public:
 
 	// 現在のシーンタイプを取得
 	SceneType getCurrentSceneType() const;
+
+	// 現在のシーンを取得
+	SceneBase* getCurrentScene() const { return m_currentScene.get(); }
+
 
 private:
 	// シーンのファクトリーメソッド

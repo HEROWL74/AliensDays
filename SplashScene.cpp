@@ -1,8 +1,9 @@
 ﻿#include "SplashScene.hpp"
+#include "SoundManager.hpp"
 
 SplashScene::SplashScene()
 	: m_timer(0.0)
-	, m_totalDuration(7.0)  // 全体で7秒
+	, m_totalDuration(7.0)
 	, m_currentPhase(Phase::FadeIn)
 	, m_explosionTimer(0.0)
 	, m_textRevealTimer(0.0)
@@ -39,6 +40,8 @@ void SplashScene::init()
 	// 衝撃波用配列の初期化
 	m_shockwaves.clear();
 	m_shockwaveTimers.clear();
+
+	// BGMは開始しない（無音のスプラッシュ）
 }
 
 void SplashScene::update()
@@ -205,7 +208,7 @@ Optional<SceneType> SplashScene::getNextScene() const
 
 void SplashScene::cleanup()
 {
-	// リソースのクリーンアップ
+	// リソースのクリーンアップ（BGMは停止しない）
 	m_particles.clear();
 	m_particleColors.clear();
 	m_particleLifetime.clear();
@@ -215,6 +218,7 @@ void SplashScene::cleanup()
 	m_shockwaveTimers.clear();
 }
 
+// 以下、既存のメソッドは変更なし...
 void SplashScene::updateFadeIn()
 {
 	if (m_timer >= 1.0)
@@ -288,43 +292,37 @@ void SplashScene::updateFadeOut()
 void SplashScene::createExplosionParticles()
 {
 	const Vec2 center = getBombPosition();
-	const int particleCount = 80;  // パーティクル数を増加
+	const int particleCount = 80;
 
 	for (int i = 0; i < particleCount; ++i)
 	{
-		// ランダムな方向と速度
 		const double angle = Random(0.0, Math::TwoPi);
-		const double speed = Random(150.0, 500.0);  // 速度範囲を拡大
+		const double speed = Random(150.0, 500.0);
 		const Vec2 velocity = Vec2(std::cos(angle), std::sin(angle)) * speed;
 
-		// パーティクルの位置（中心から少しずらす）
 		const Vec2 startPos = center + Vec2(Random(-30.0, 30.0), Random(-30.0, 30.0));
 
 		m_particles.push_back(startPos);
 
-		// より多彩な色
 		ColorF color;
 		const double colorType = Random(0.0, 1.0);
 		if (colorType < 0.4)
 		{
-			// オレンジ系
 			color = ColorF(Random(0.8, 1.0), Random(0.3, 0.7), Random(0.0, 0.2));
 		}
 		else if (colorType < 0.7)
 		{
-			// 黄色系
 			color = ColorF(Random(0.9, 1.0), Random(0.8, 1.0), Random(0.0, 0.3));
 		}
 		else
 		{
-			// 赤系
 			color = ColorF(Random(0.8, 1.0), Random(0.0, 0.3), Random(0.0, 0.2));
 		}
 
 		m_particleColors.push_back(color);
-		m_particleLifetime.push_back(Random(1.0, 2.5));  // 寿命を延長
+		m_particleLifetime.push_back(Random(1.0, 2.5));
 		m_particleVelocities.push_back(velocity);
-		m_particleSizes.push_back(Random(2.0, 8.0));  // サイズにバリエーション
+		m_particleSizes.push_back(Random(2.0, 8.0));
 	}
 }
 
@@ -332,11 +330,10 @@ void SplashScene::createShockwaves()
 {
 	const Vec2 center = getBombPosition();
 
-	// 複数の衝撃波を作成
 	for (int i = 0; i < 3; ++i)
 	{
 		m_shockwaves.push_back(center);
-		m_shockwaveTimers.push_back(i * 0.1);  // 時間差で発生
+		m_shockwaveTimers.push_back(i * 0.1);
 	}
 }
 
@@ -346,12 +343,10 @@ void SplashScene::updateParticles()
 
 	for (size_t i = 0; i < m_particles.size(); )
 	{
-		// 寿命を減らす
 		m_particleLifetime[i] -= deltaTime;
 
 		if (m_particleLifetime[i] <= 0.0)
 		{
-			// パーティクルを削除
 			m_particles.erase(m_particles.begin() + i);
 			m_particleColors.erase(m_particleColors.begin() + i);
 			m_particleLifetime.erase(m_particleLifetime.begin() + i);
@@ -360,16 +355,10 @@ void SplashScene::updateParticles()
 		}
 		else
 		{
-			// パーティクルを移動
 			m_particles[i] += m_particleVelocities[i] * deltaTime;
-
-			// 重力と空気抵抗を適用
-			m_particleVelocities[i].y += 300.0 * deltaTime;  // 重力
-			m_particleVelocities[i] *= 0.98;  // 空気抵抗
-
-			// サイズも徐々に小さく
+			m_particleVelocities[i].y += 300.0 * deltaTime;
+			m_particleVelocities[i] *= 0.98;
 			m_particleSizes[i] *= 0.99;
-
 			++i;
 		}
 	}
@@ -383,7 +372,7 @@ void SplashScene::updateShockwaves()
 	{
 		m_shockwaveTimers[i] += deltaTime;
 
-		if (m_shockwaveTimers[i] > 1.0)  // 衝撃波の寿命
+		if (m_shockwaveTimers[i] > 1.0)
 		{
 			m_shockwaves.erase(m_shockwaves.begin() + i);
 			m_shockwaveTimers.erase(m_shockwaveTimers.begin() + i);
@@ -399,15 +388,12 @@ void SplashScene::drawParticles() const
 {
 	for (size_t i = 0; i < m_particles.size(); ++i)
 	{
-		const double alpha = m_particleLifetime[i] / 2.5;  // 寿命に応じてフェード
+		const double alpha = m_particleLifetime[i] / 2.5;
 		const ColorF color = m_particleColors[i];
 		const Vec2 pos = m_particles[i];
 		const double size = m_particleSizes[i];
 
-		// パーティクル本体
 		Circle(pos, size).draw(ColorF(color.r, color.g, color.b, alpha));
-
-		// 光る効果
 		Circle(pos, size * 1.5).draw(ColorF(color.r, color.g, color.b, alpha * 0.3));
 	}
 }
@@ -417,13 +403,12 @@ void SplashScene::drawShockwaves() const
 	for (size_t i = 0; i < m_shockwaves.size(); ++i)
 	{
 		const double timer = m_shockwaveTimers[i];
-		if (timer < 0.0) continue;  // まだ開始していない
+		if (timer < 0.0) continue;
 
 		const Vec2 center = m_shockwaves[i];
-		const double radius = timer * 800.0;  // 衝撃波の半径
+		const double radius = timer * 800.0;
 		const double alpha = Math::Max(0.0, 1.0 - timer);
 
-		// 衝撃波のリング
 		Circle(center, radius).drawFrame(8.0, ColorF(1.0, 0.8, 0.4, alpha * 0.6));
 		Circle(center, radius).drawFrame(4.0, ColorF(1.0, 1.0, 0.8, alpha * 0.8));
 	}
@@ -437,7 +422,6 @@ void SplashScene::drawBomb(const Vec2& pos, double scale, double rotation) const
 	}
 	else
 	{
-		// フォールバック: 円で描画
 		Circle(pos, 30 * scale).draw(ColorF(0.2, 0.2, 0.2));
 		Circle(pos, 25 * scale).draw(ColorF(0.4, 0.4, 0.4));
 	}
@@ -451,7 +435,6 @@ void SplashScene::drawBombActive(const Vec2& pos, double scale, double rotation)
 	}
 	else
 	{
-		// フォールバック: 明るい円で描画
 		Circle(pos, 30 * scale).draw(ColorF(0.8, 0.2, 0.2));
 		Circle(pos, 25 * scale).draw(ColorF(1.0, 0.4, 0.4));
 	}
@@ -461,7 +444,6 @@ void SplashScene::drawCompanyText(double alpha) const
 {
 	const String companyText = U"HerowlGames";
 
-	// テキストアニメーション効果
 	const double time = Scene::Time();
 	const double bounce = std::sin(time * 2.0) * 5.0;
 	const double scale = 1.0 + std::sin(time * 1.5) * 0.1;
@@ -469,7 +451,6 @@ void SplashScene::drawCompanyText(double alpha) const
 	const Vec2 basePos = Vec2(Scene::Center().x, Scene::Center().y + 100);
 	const Vec2 textPos = basePos + Vec2(0, bounce);
 
-	// 光る効果のための複数描画
 	for (int i = 3; i >= 0; --i)
 	{
 		const double glowAlpha = alpha * (0.2 + i * 0.1);
@@ -479,11 +460,11 @@ void SplashScene::drawCompanyText(double alpha) const
 		ColorF glowColor;
 		if (i == 0)
 		{
-			glowColor = ColorF(1.0, 1.0, 1.0, alpha);  // メインテキスト
+			glowColor = ColorF(1.0, 1.0, 1.0, alpha);
 		}
 		else
 		{
-			glowColor = ColorF(0.8, 0.8, 1.0, glowAlpha);  // 光る効果
+			glowColor = ColorF(0.8, 0.8, 1.0, glowAlpha);
 		}
 
 		const auto scaledFont = Font(static_cast<int>(48 * glowSize), Typeface::Bold);
@@ -503,7 +484,7 @@ void SplashScene::drawPoweredByText(double alpha) const
 
 double SplashScene::getPhaseProgress() const
 {
-	const double phaseDuration = 1.0;  // 各フェーズの基本時間
+	const double phaseDuration = 1.0;
 	return Math::Clamp(m_timer / phaseDuration, 0.0, 1.0);
 }
 
@@ -514,7 +495,6 @@ Vec2 SplashScene::getBombPosition() const
 
 double SplashScene::getBombScale() const
 {
-	// フェーズに応じてスケール調整
 	switch (m_currentPhase)
 	{
 	case Phase::FadeIn:
@@ -530,7 +510,6 @@ double SplashScene::getBombScale() const
 
 ColorF SplashScene::getBackgroundColor() const
 {
-	// フェーズに応じて背景色を変化
 	switch (m_currentPhase)
 	{
 	case Phase::FadeIn:

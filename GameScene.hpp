@@ -6,13 +6,80 @@
 #include "Stage.hpp"
 #include "EnemyBase.hpp"
 #include "NormalSlime.hpp"
+#include "SpikeSlime.hpp"
+#include "Ladybug.hpp"
+#include "SlimeBlock.hpp"
+#include "Saw.hpp"
+#include "Bee.hpp"
+#include "Fly.hpp"
 #include "HUDSystem.hpp"
 #include "CoinSystem.hpp"
 #include "StarSystem.hpp"
+#include "BlockSystem.hpp"
+#include "CollisionSystem.hpp"
+
+// ファイアボール撃破エフェクト用の構造体
+struct FireballParticle
+{
+	Vec2 position;
+	Vec2 velocity;
+	double life;
+	double maxLife;
+	double size;
+	ColorF color;
+	double rotation;
+	double rotationSpeed;
+
+	FireballParticle()
+		: position(Vec2::Zero()), velocity(Vec2::Zero())
+		, life(1.0), maxLife(1.0), size(5.0)
+		, color(ColorF(1.0, 1.0, 1.0)), rotation(0.0), rotationSpeed(0.0)
+	{
+	}
+};
+
+struct FireballShockwave
+{
+	Vec2 position;
+	double radius;
+	double maxRadius;
+	double life;
+	double maxLife;
+	double delay;
+
+	FireballShockwave()
+		: position(Vec2::Zero()), radius(0.0), maxRadius(100.0)
+		, life(1.0), maxLife(1.0), delay(0.0)
+	{
+	}
+};
+
+struct FireballDestructionEffect
+{
+	Vec2 position;
+	Vec2 fireballDirection;
+	EnemyType enemyType;
+	double timer;
+	bool active;
+	int particleCount;
+	ColorF primaryColor;
+	ColorF secondaryColor;
+	Array<FireballParticle> particles;
+	Array<FireballShockwave> shockwaves;
+
+	FireballDestructionEffect()
+		: position(Vec2::Zero()), fireballDirection(Vec2(1, 0))
+		, enemyType(EnemyType::NormalSlime), timer(0.0), active(false)
+		, particleCount(15), primaryColor(ColorF(1.0, 1.0, 1.0))
+		, secondaryColor(ColorF(0.8, 0.8, 0.8))
+	{
+	}
+};
 
 class GameScene final : public SceneBase
 {
 private:
+	// 基本メンバー変数
 	Texture m_backgroundTexture;
 	Font m_gameFont;
 	Optional<SceneType> m_nextScene;
@@ -34,11 +101,19 @@ private:
 	std::unique_ptr<HUDSystem> m_hudSystem;
 	std::unique_ptr<CoinSystem> m_coinSystem;
 	std::unique_ptr<StarSystem> m_starSystem;
+	std::unique_ptr<BlockSystem> m_blockSystem;
+
+	// 新しい統一衝突判定システム
+	std::unique_ptr<CollisionSystem> m_collisionSystem;
+
+	// ファイアボール撃破エフェクト用メンバー変数
+	Array<FireballDestructionEffect> m_fireballDestructionEffects;
 
 	// リザルト関連
 	bool m_isLastStage;
 	bool m_fromResultScene;
 	static StageNumber s_nextStageNumber;
+	static StageNumber s_gameOverStage;
 	static int s_resultStars;
 	static int s_resultCoins;
 	static double s_resultTime;
@@ -58,6 +133,7 @@ public:
 
 	// 静的メソッド - リザルトデータ管理用
 	static StageNumber getNextStageNumber() { return s_nextStageNumber; }
+	static StageNumber getGameOverStage() { return s_gameOverStage; }
 	static int getResultStars() { return s_resultStars; }
 	static int getResultCoins() { return s_resultCoins; }
 	static double getResultTime() { return s_resultTime; }
@@ -76,7 +152,10 @@ public:
 private:
 	// ステージ関連
 	void loadStage(StageNumber stageNumber);
-	void updatePlayerStageCollision();
+
+	// 新しい統一衝突判定メソッド
+	void updatePlayerCollisionsUnified();
+	void updateBlockSystemInteractions();
 
 	// 敵システム関連
 	void initEnemies();
@@ -97,9 +176,24 @@ private:
 	// 衝突判定ヘルパー
 	bool isPlayerStompingEnemy(const RectF& playerRect, const RectF& enemyRect) const;
 	void handlePlayerStompEnemy(EnemyBase* enemy);
+	void updateFireballEnemyCollision();
+	void handleEnemyHitByFireball(EnemyBase* enemy, const Vec2& fireballPosition);
 	void handlePlayerHitByEnemy(EnemyBase* enemy);
 
 	// エフェクト描画ヘルパー
 	void drawEnemyFlattenedEffect(const Vec2& screenPos, const EnemyBase* enemy) const;
 	void drawEnemyHitEffect(const Vec2& screenPos, const EnemyBase* enemy) const;
+	void drawPlayerFireballs() const;
+
+	// 新敵用の特殊処理
+	void handleSpecialEnemyCollision(EnemyBase* enemy);
+	bool canStompEnemy(const EnemyBase* enemy) const;
+
+	// BlockSystem関連のメソッド（簡素化）
+	void updateTotalCoinsFromBlocks();
+
+	// ファイアボール撃破エフェクト用メソッド
+	void createFireballDestructionEffect(const Vec2& enemyPos, EnemyType enemyType, const Vec2& fireballPos);
+	void updateFireballDestructionEffects();
+	void drawFireballDestructionEffects() const;
 };

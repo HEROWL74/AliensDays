@@ -173,11 +173,14 @@ void NormalSlime::onHit()
 
 void NormalSlime::onStomp()
 {
-	// 踏まれたら一旦Flattened状態にする（即座に消さない）
-	if (m_state != EnemyState::Dead)
+	// 既にFlattened状態または死亡状態の場合は何もしない
+	if (m_state == EnemyState::Flattened || m_state == EnemyState::Dead)
 	{
-		setState(EnemyState::Flattened);
+		return;
 	}
+
+	// 踏まれたら一旦Flattened状態にする（即座に消さない）
+	setState(EnemyState::Flattened);
 }
 
 void NormalSlime::startWalking()

@@ -1,4 +1,5 @@
 ﻿#include "CreditScene.hpp"
+#include "SoundManager.hpp"
 
 CreditScene::CreditScene()
 	: m_scrollOffset(0.0)
@@ -22,6 +23,13 @@ void CreditScene::init()
 	m_categoryFont = Font(28, Typeface::Bold);
 	m_nameFont = Font(20);
 	m_buttonFont = Font(20, Typeface::Bold);
+
+	// タイトルBGMが再生されていない場合は開始
+	SoundManager& soundManager = SoundManager::GetInstance();
+	if (!soundManager.isBGMPlaying(SoundManager::SoundType::BGM_TITLE))
+	{
+		soundManager.playBGM(SoundManager::SoundType::BGM_TITLE);
+	}
 
 	// クレジット情報とボタンの設定
 	setupCredits();
@@ -63,6 +71,7 @@ Optional<SceneType> CreditScene::getNextScene() const
 
 void CreditScene::cleanup()
 {
+	// BGMは停止しない（タイトルBGMを継続）
 	// 必要に応じてクリーンアップ
 }
 
@@ -198,6 +207,8 @@ void CreditScene::updateInput()
 	// 戻る操作
 	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered))
 	{
+		// SE再生
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Title;
 	}
 

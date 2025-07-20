@@ -24,6 +24,7 @@ enum class BlockType
 	Top,
 	TopLeft,
 	TopRight,
+	Simple,
 	Empty  // 何もない空間
 };
 
@@ -103,6 +104,8 @@ public:
 	void generateStageLayout();
 
 	void generateUnifiedStageLayout();
+
+	void createAirPlatform(int startX, int y, int width);
 
 	// 更新・描画
 	void update(const Vec2& playerPosition);  // カメラ更新用

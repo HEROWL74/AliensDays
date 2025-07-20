@@ -1,9 +1,11 @@
 ﻿#include "TitleScene.hpp"
+#include "SoundManager.hpp"
 
 TitleScene::TitleScene()
 	: m_nextScene(none)
 	, m_selectedButton(0)
 	, m_buttonHoverTimer(0.0)
+	, m_bgmStarted(false)
 {
 }
 
@@ -29,12 +31,25 @@ void TitleScene::init()
 	m_nextScene = none;
 	m_selectedButton = 0;
 	m_buttonHoverTimer = 0.0;
+	m_bgmStarted = false;
+
+	// タイトルBGMを開始
+	SoundManager::GetInstance().playBGM(SoundManager::SoundType::BGM_TITLE);
 }
 
 void TitleScene::update()
 {
 	// ボタンホバータイマー更新
 	m_buttonHoverTimer += Scene::DeltaTime();
+
+	// BGMが停止している場合は再開
+	if (!SoundManager::GetInstance().isBGMPlaying(SoundManager::SoundType::BGM_TITLE))
+	{
+		SoundManager::GetInstance().playBGM(SoundManager::SoundType::BGM_TITLE);
+	}
+
+	// 前回の選択を保存
+	const int previousSelection = m_selectedButton;
 
 	// キーボード操作
 	if (KeyUp.down() || KeyW.down())
@@ -46,6 +61,12 @@ void TitleScene::update()
 	{
 		m_selectedButton = (m_selectedButton + 1) % static_cast<int>(m_buttons.size());
 		m_buttonHoverTimer = 0.0;
+	}
+
+	// 選択が変わった場合はSEを再生
+	if (m_selectedButton != previousSelection)
+	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
 
 	// マウス操作
@@ -60,6 +81,7 @@ void TitleScene::update()
 			{
 				m_selectedButton = static_cast<int>(i);
 				m_buttonHoverTimer = 0.0;
+				SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 			}
 			mouseHoverDetected = true;
 			break;
@@ -70,12 +92,14 @@ void TitleScene::update()
 	if (KeyEnter.down() || KeySpace.down() ||
 		(MouseL.down() && mouseHoverDetected))
 	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		executeButton(m_selectedButton);
 	}
 
 	// 従来のクイックスタート（互換性のため）
-	if (KeyG.down())  // Gキーでゲーム直行
+	if (KeyG.down())
 	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Game;
 	}
 }
@@ -107,6 +131,11 @@ void TitleScene::draw() const
 
 	// 操作説明
 	drawControlInstructions();
+
+	// サウンド情報表示（デバッグ用）
+#ifdef _DEBUG
+	drawSoundDebugInfo();
+#endif
 }
 
 Optional<SceneType> TitleScene::getNextScene() const
@@ -116,13 +145,14 @@ Optional<SceneType> TitleScene::getNextScene() const
 
 void TitleScene::cleanup()
 {
-	// リソースのクリーンアップ（必要に応じて）
+	// BGMは停止しない（他のシーンで継続させる）
+	// リソースのクリーンアップのみ
 }
 
 void TitleScene::setupButtons()
 {
-	const double buttonWidth = 280.0;  // ボタン幅を大きく
-	const double buttonHeight = 80.0;  // ボタン高さを大きく
+	const double buttonWidth = 280.0;
+	const double buttonHeight = 80.0;
 	const double buttonSpacing = 100.0;
 	const Vec2 startPos = Vec2(Scene::Center().x - buttonWidth / 2, Scene::Center().y + 120);
 
@@ -159,29 +189,27 @@ void TitleScene::drawAnimatedLogo() const
 	const double time = Scene::Time();
 
 	// 複数のアニメーション効果を組み合わせ
-	const double bounce = std::sin(time * 1.5) * 8.0;           // バウンス
-	const double scale = 1.8 + std::sin(time * 2.0) * 0.05;     // スケール変化（大きく）
-	const double rotation = std::sin(time * 0.8) * 0.05;        // 軽い回転
-	const double sway = std::cos(time * 1.2) * 3.0;             // 左右の揺れ
+	const double bounce = std::sin(time * 1.5) * 8.0;
+	const double scale = 1.8 + std::sin(time * 2.0) * 0.05;
+	const double rotation = std::sin(time * 0.8) * 0.05;
+	const double sway = std::cos(time * 1.2) * 3.0;
 
-	// ロゴの位置計算（ボタンのためにもう少し上に）
+	// ロゴの位置計算
 	const Vec2 logoPos = Vec2(Scene::Center().x + sway, Scene::Center().y - 180 + bounce);
 
-	// 光る効果のための複数描画（グロー効果）
+	// 光る効果のための複数描画
 	for (int i = 3; i >= 0; --i)
 	{
 		const double glowScale = scale * (1.0 + i * 0.02);
 		const double glowAlpha = 0.15 + i * 0.05;
 		const ColorF glowColor = ColorF(1.0, 1.0, 0.8, glowAlpha);
 
-		// グロー効果
 		if (i > 0)
 		{
 			m_gameLogoTexture.scaled(glowScale).rotated(rotation).drawAt(logoPos, glowColor);
 		}
 		else
 		{
-			// メインロゴ
 			m_gameLogoTexture.scaled(scale).rotated(rotation).drawAt(logoPos);
 		}
 	}
@@ -200,10 +228,8 @@ void TitleScene::drawAnimatedLogo() const
 			);
 			const Vec2 sparklePos = logoPos + sparkleOffset;
 
-			// 星型のキラキラ
 			const double sparkleSize = 3.0 + std::sin(sparkleTime * 4.0) * 2.0;
 
-			// 星の描画（十字型）
 			Line(sparklePos.x - sparkleSize, sparklePos.y,
 				 sparklePos.x + sparkleSize, sparklePos.y)
 				.draw(2.0, ColorF(1.0, 1.0, 0.8, sparkleAlpha));
@@ -230,15 +256,12 @@ void TitleScene::drawButtons() const
 
 		if (isSelected)
 		{
-			// 選択されたボタンの効果（拡大エフェクト復活）
 			buttonScale = 1.1 + std::sin(time * 8.0 + m_buttonHoverTimer * 10.0) * 0.05;
 			buttonAlpha = 1.0;
 
-			// 選択されたボタンは光る
 			const double glowIntensity = 0.5 + 0.5 * std::sin(time * 6.0);
 			buttonColor = ColorF(1.0, 1.0, 0.8 + glowIntensity * 0.2);
 		}
-		// 選択されていないボタンは通常サイズ（1.0）のまま
 
 		// ボタン背景の描画
 		const Vec2 buttonCenter = button.rect.center();
@@ -246,10 +269,8 @@ void TitleScene::drawButtons() const
 
 		if (m_buttonTexture)
 		{
-			// ボタン画像を使用
 			if (isSelected)
 			{
-				// グロー効果
 				for (int glow = 2; glow >= 0; --glow)
 				{
 					const double glowScale = buttonScale * (1.0 + glow * 0.08);
@@ -268,12 +289,10 @@ void TitleScene::drawButtons() const
 		}
 		else
 		{
-			// フォールバック：矩形で描画
 			RectF buttonRect = RectF(Arg::center = buttonCenter, buttonSize);
 
 			if (isSelected)
 			{
-				// グロー効果
 				buttonRect.drawFrame(4.0, ColorF(1.0, 1.0, 0.6, 0.8));
 				buttonRect.draw(ColorF(0.3, 0.3, 0.1, 0.9));
 			}
@@ -284,21 +303,17 @@ void TitleScene::drawButtons() const
 			}
 		}
 
-		// ボタンテキストの描画（フォントサイズを大きく）
-		const Font largeButtonFont = Font(26, Typeface::Bold);  // ボタンフォントを大きく
+		// ボタンテキストの描画
+		const Font largeButtonFont = Font(26, Typeface::Bold);
 		ColorF textColor = isSelected ? ColorF(0.1, 0.1, 0.1) : ColorF(0.9, 0.9, 0.9);
 
-		// 選択されたボタンのテキストにも軽い効果
 		if (isSelected)
 		{
-			// 影効果
 			largeButtonFont(button.text).drawAt(buttonCenter + Vec2(2, 2), ColorF(0.0, 0.0, 0.0, 0.5));
-			// メインテキスト
 			largeButtonFont(button.text).drawAt(buttonCenter, textColor);
 		}
 		else
 		{
-			// 通常のテキスト
 			largeButtonFont(button.text).drawAt(buttonCenter + Vec2(1, 1), ColorF(0.0, 0.0, 0.0, 0.3));
 			largeButtonFont(button.text).drawAt(buttonCenter, textColor);
 		}
@@ -309,7 +324,6 @@ void TitleScene::drawBackgroundParticles() const
 {
 	const double time = Scene::Time();
 
-	// 背景にパーティクル風エフェクト
 	for (int i = 0; i < 15; ++i)
 	{
 		const double particleTime = time + i * 0.5;
@@ -334,6 +348,20 @@ void TitleScene::drawControlInstructions() const
 	m_messageFont(instructions).draw(instructionsPos, ColorF(0.7, 0.7, 0.7, 0.8));
 }
 
+void TitleScene::drawSoundDebugInfo() const
+{
+	const SoundManager& soundManager = SoundManager::GetInstance();
+
+	const String debugInfo = U"BGM: {:.0f}% | SE: {:.0f}% | Master: {:.0f}% | Playing: {}"_fmt(
+		soundManager.getBGMVolume() * 100,
+		soundManager.getSEVolume() * 100,
+		soundManager.getMasterVolume() * 100,
+		soundManager.isBGMPlaying() ? U"Yes" : U"No"
+	);
+
+	Font(16)(debugInfo).draw(10, 10, ColorF(1.0, 1.0, 0.0));
+}
+
 void TitleScene::executeButton(int buttonIndex)
 {
 	if (buttonIndex < 0 || buttonIndex >= static_cast<int>(m_buttons.size()))
@@ -341,22 +369,24 @@ void TitleScene::executeButton(int buttonIndex)
 
 	const ButtonAction action = m_buttons[buttonIndex].action;
 
+	//ボタン決定音を再生
+	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+
 	switch (action)
 	{
 	case ButtonAction::Start:
-		m_nextScene = SceneType::CharacterSelect;  // キャラクター選択画面に遷移
+		m_nextScene = SceneType::CharacterSelect;
 		break;
 
 	case ButtonAction::Option:
-		m_nextScene = SceneType::Option;  // オプションシーンに遷移
+		m_nextScene = SceneType::Option;
 		break;
 
 	case ButtonAction::Credits:
-		m_nextScene = SceneType::Credit;  // クレジットシーンに遷移
+		m_nextScene = SceneType::Credit;
 		break;
 
 	case ButtonAction::Exit:
-		// ゲーム終了
 		System::Exit();
 		break;
 	}

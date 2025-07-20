@@ -1,4 +1,5 @@
 ﻿#include "Application.hpp"
+#include "SoundManager.hpp"
 
 Application::Application()
 	: m_sceneManager(nullptr)
@@ -17,11 +18,12 @@ bool Application::init()
 	Window::SetTitle(U"Siv3D Game");
 	Window::Resize(1920, 1080);
 
+	// SoundManagerの初期化
+	SoundManager::GetInstance().init();
+
 	// シーンマネージャーの初期化
 	m_sceneManager = std::make_unique<SceneManagers>();
-	m_sceneManager->init(SceneType::Splash);  // 初期シーンをスプラッシュに変更
-
-	
+	m_sceneManager->init(SceneType::Splash);
 
 	m_isRunning = true;
 	return true;
@@ -50,6 +52,10 @@ void Application::run()
 void Application::shutdown()
 {
 	m_isRunning = false;
+
+	// SoundManagerのクリーンアップ
+	SoundManager::GetInstance().cleanup();
+
 	m_sceneManager.reset();
 }
 

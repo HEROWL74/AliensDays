@@ -1,4 +1,5 @@
 ﻿#include "OptionScene.hpp"
+#include "SoundManager.hpp"
 
 OptionScene::OptionScene()
 	: m_selectedItem(0)
@@ -20,6 +21,15 @@ void OptionScene::init()
 	m_titleFont = Font(36, Typeface::Bold);
 	m_labelFont = Font(20);
 	m_buttonFont = Font(20, Typeface::Bold);
+
+	// SoundManagerから現在の設定を取得
+	SoundManager& soundManager = SoundManager::GetInstance();
+
+	// タイトルBGMが再生されていない場合は開始
+	if (!soundManager.isBGMPlaying(SoundManager::SoundType::BGM_TITLE))
+	{
+		soundManager.playBGM(SoundManager::SoundType::BGM_TITLE);
+	}
 
 	// UI要素の設定
 	setupPanel();
@@ -64,7 +74,9 @@ Optional<SceneType> OptionScene::getNextScene() const
 
 void OptionScene::cleanup()
 {
-	// 必要に応じてクリーンアップ
+	// 設定を保存（メモリ内のみ）
+	applySettings();
+	// BGMは停止しない（タイトルBGMを継続）
 }
 
 void OptionScene::setupPanel()
@@ -83,6 +95,8 @@ void OptionScene::setupSliders()
 {
 	m_sliders.clear();
 
+	SoundManager& soundManager = SoundManager::GetInstance();
+
 	const double sliderWidth = 300.0;
 	const double sliderHeight = 20.0;
 	const double startY = m_panelRect.y + 80;
@@ -97,7 +111,7 @@ void OptionScene::setupSliders()
 		sliderWidth,
 		sliderHeight
 	);
-	masterVolume.value = 0.8;  // デフォルト80%
+	masterVolume.value = soundManager.getMasterVolume();
 	masterVolume.minValue = 0.0;
 	masterVolume.maxValue = 1.0;
 	masterVolume.isDragging = false;
@@ -116,7 +130,7 @@ void OptionScene::setupSliders()
 		sliderWidth,
 		sliderHeight
 	);
-	bgmVolume.value = 0.6;  // デフォルト60%
+	bgmVolume.value = soundManager.getBGMVolume();
 	bgmVolume.minValue = 0.0;
 	bgmVolume.maxValue = 1.0;
 	bgmVolume.isDragging = false;
@@ -135,7 +149,7 @@ void OptionScene::setupSliders()
 		sliderWidth,
 		sliderHeight
 	);
-	seVolume.value = 0.7;  // デフォルト70%
+	seVolume.value = soundManager.getSEVolume();
 	seVolume.minValue = 0.0;
 	seVolume.maxValue = 1.0;
 	seVolume.isDragging = false;
@@ -152,7 +166,7 @@ void OptionScene::setupButtons()
 
 	const double buttonWidth = 120.0;
 	const double buttonHeight = 50.0;
-	const double buttonSpacing = 20.0;  // ボタン間の隙間
+	const double buttonSpacing = 20.0;
 	const double startY = m_panelRect.y + m_panelRect.h - 80;
 
 	// 3つのボタンの総幅を計算
@@ -202,10 +216,12 @@ void OptionScene::updateKeyboardInput()
 	if (KeyUp.down() || KeyW.down())
 	{
 		m_selectedItem = (m_selectedItem - 1 + getTotalItemCount()) % getTotalItemCount();
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
 	if (KeyDown.down() || KeyS.down())
 	{
 		m_selectedItem = (m_selectedItem + 1) % getTotalItemCount();
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
 
 	// スライダー調整
@@ -218,11 +234,13 @@ void OptionScene::updateKeyboardInput()
 		{
 			slider.value = Math::Clamp(slider.value - 0.1, 0.0, 1.0);
 			slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
+			updateSliderValue(sliderIndex, slider.value);
 		}
 		if (KeyRight.down() || KeyD.down())
 		{
 			slider.value = Math::Clamp(slider.value + 0.1, 0.0, 1.0);
 			slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
+			updateSliderValue(sliderIndex, slider.value);
 		}
 	}
 
@@ -313,6 +331,29 @@ void OptionScene::updateSliderDrag()
 
 	slider.value = normalizedX;
 	slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
+
+	// リアルタイムでサウンド設定を更新
+	updateSliderValue(m_draggingSliderIndex, slider.value);
+}
+
+void OptionScene::updateSliderValue(int sliderIndex, double value)
+{
+	SoundManager& soundManager = SoundManager::GetInstance();
+
+	switch (sliderIndex)
+	{
+	case 0: // Master Volume
+		soundManager.setMasterVolume(value);
+		break;
+	case 1: // BGM Volume
+		soundManager.setBGMVolume(value);
+		break;
+	case 2: // SE Volume
+		soundManager.setSEVolume(value);
+		// テスト用にSEを再生
+		soundManager.playSE(SoundManager::SoundType::SFX_SELECT);
+		break;
+	}
 }
 
 void OptionScene::drawBackground() const
@@ -462,6 +503,8 @@ void OptionScene::executeButton(int buttonIndex)
 
 	const auto action = m_buttons[buttonIndex].action;
 
+	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+
 	switch (action)
 	{
 	case ButtonData::Action::Apply:
@@ -478,23 +521,28 @@ void OptionScene::executeButton(int buttonIndex)
 
 void OptionScene::resetToDefaults()
 {
+	SoundManager& soundManager = SoundManager::GetInstance();
+
 	// デフォルト値に戻す
-	m_sliders[0].value = 0.8;  // Master スライダー
-	m_sliders[1].value = 0.6;  // BGM スライダー
-	m_sliders[2].value = 0.7;  // SE スライダー
+	soundManager.setMasterVolume(0.5);
+	soundManager.setBGMVolume(0.7);
+	soundManager.setSEVolume(0.8);
+
+	// スライダー値を更新
+	m_sliders[0].value = 0.5;  // Master Volume
+	m_sliders[1].value = 0.7;  // BGM Volume
+	m_sliders[2].value = 0.8;  // SE Volume
 
 	// ハンドル位置更新
 	for (auto& slider : m_sliders)
 	{
 		slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
 	}
+
 }
 
 void OptionScene::applySettings()
 {
-	// TODO; 実際の設定適用処理（保存処理）
-	// TODO: ここで音量などの設定を保存/適用
-
-	// 一時的なフィードバック表示など
+	// 設定適用（既にリアルタイムで適用されているため、確認メッセージのみ）
 	Print << U"Settings applied!";
 }

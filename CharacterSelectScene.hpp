@@ -41,6 +41,11 @@ private:
 	Array<Vec2> m_sparklePositions;
 	Array<double> m_sparkleTimers;
 
+	// ステータスバーアニメーション用
+	mutable Array<double> m_currentStatValues;  // 現在表示中の値（アニメーション用）
+	mutable Array<double> m_targetStatValues;   // 目標値
+	static constexpr double STAT_ANIMATION_SPEED = 8.0;  // アニメーション速度
+
 	Optional<SceneType> m_nextScene;
 
 public:
@@ -66,12 +71,15 @@ private:
 	// 更新メソッド
 	void updateInput();
 	void updateAnimations();
+	void updateStatAnimations();      // ステータスバーアニメーション更新
+	void updateTargetStatValues();    // 目標ステータス値更新
 
 	// 描画メソッド
 	void drawBackground() const;
 	void drawTitle() const;
 	void drawCharacters() const;
 	void drawCharacter(const CharacterData& character, bool isSelected) const;
+	void drawCharacterStats() const;  // 新しいメソッド：特性表示
 	void drawButtons() const;
 	void drawSparkles() const;
 	void drawInstructions() const;
@@ -80,6 +88,10 @@ private:
 	String getColorName(PlayerColor color) const;
 	ColorF getColorTint(PlayerColor color) const;
 	void createSparkleEffect(const Vec2& position);
+
+	// 特性表示用ヘルパーメソッド
+	void drawStatBar(const String& label, int value, int maxValue, double centerX, double y, const ColorF& color) const;
+	void drawAnimatedStatBar(const String& label, double normalizedValue, double centerX, double y, const ColorF& color) const;
 
 	// 五角形アニメーション関連
 	Vec2 getPentagonTraceMovement(double time) const;

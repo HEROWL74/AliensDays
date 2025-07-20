@@ -13,6 +13,7 @@ HUDSystem::HUDSystem()
 	, m_heartShakeTimer(0.0)            // ハート揺れタイマー
 	, m_heartShakeIntensity(0.0)        // ハート揺れ強度
 	, m_heartShakePhase(0.0)            // ハート揺れ位相
+	,m_remainingFireballs(10)           //ファイアボールの数
 {
 }
 
@@ -77,8 +78,6 @@ void HUDSystem::update()
 		m_heartShakeIntensity = 1.0;
 		m_heartShakePhase = 0.0;
 
-		// デバッグ出力を強化
-		Print << U"HUDSystem: Damage detected! Life: {} -> {}. Starting heart shake."_fmt(m_previousLife, m_currentLife);
 	}
 
 	// 前フレームのライフを更新
@@ -97,7 +96,6 @@ void HUDSystem::update()
 		{
 			m_heartShakeTimer = 0.0;
 			m_heartShakePhase = 0.0;
-			Print << U"HUDSystem: Heart shake animation completed.";
 		}
 	}
 }
@@ -106,16 +104,32 @@ void HUDSystem::draw() const
 {
 	if (!m_visible) return;
 
-	// HUD要素を順番に描画
-	drawHearts();      // ライフハート（揺れ機能付き）
-	drawPlayerIcon();  // プレイヤーアイコン
-	drawCoins();       // コイン表示
-	drawStars();       // スター表示（新機能）
+	drawHearts();
+	drawPlayerIcon();
+	drawCoins();
+	drawStars();
+
+	// ★ ファイアボール残数表示
+	drawFireballs();
+}
+
+void HUDSystem::drawFireballs() const
+{
+	const Vec2 fireballPos = Vec2(m_hudPosition.x + 400, m_hudPosition.y + HEART_SIZE + ELEMENT_SPACING);
+
+	// ファイアボールアイコン（簡易版）
+	Circle(fireballPos + Vec2(20, 20), 15).draw(ColorF(1.0, 0.5, 0.0));
+	Circle(fireballPos + Vec2(20, 20), 10).draw(ColorF(1.0, 0.8, 0.2));
+
+	// 残数表示
+	const String fireballText = U"FB: {}"_fmt(m_remainingFireballs);
+	Font(16)(fireballText).draw(fireballPos + Vec2(50, 10), ColorF(1.0, 1.0, 1.0));
 }
 
 void HUDSystem::drawHearts() const
 {
-	const int heartsCount = 3; // 常に3つのハートを表示
+	// 最大ライフに応じてハート数を計算
+	const int heartsCount = (m_maxLife + 1) / 2; // 2ライフごとに1ハート
 	const Vec2 heartBasePos = m_hudPosition;
 
 	for (int i = 0; i < heartsCount; i++)
@@ -370,8 +384,6 @@ void HUDSystem::setCurrentLife(int newLife)
 		m_heartShakeTimer = 0.0;
 		m_heartShakeIntensity = 1.0;
 		m_heartShakePhase = 0.0;
-
-		Print << U"HUDSystem: SetCurrentLife damage detected! {} -> {}"_fmt(oldLife, m_currentLife);
 	}
 
 	// previousLifeも更新して重複検出を防ぐ
@@ -406,13 +418,11 @@ void HUDSystem::setPlayerCharacter(int characterIndex)
 	}
 }
 
-// 新規追加: 外部からダメージを通知する関数
+
 void HUDSystem::notifyDamage()
 {
 	// 強制的にハート揺れアニメーションを開始
 	m_heartShakeTimer = 0.0;
 	m_heartShakeIntensity = 1.0;
 	m_heartShakePhase = 0.0;
-
-	Print << U"HUDSystem: Damage notification received! Starting heart shake.";
 }

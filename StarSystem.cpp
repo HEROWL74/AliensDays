@@ -1,4 +1,5 @@
 ﻿#include "StarSystem.hpp"
+#include "SoundManager.hpp"
 
 StarSystem::StarSystem()
 	: m_collectedStarsCount(0)
@@ -15,9 +16,7 @@ void StarSystem::loadTextures()
 {
 	// 星テクスチャを読み込み
 	m_starTexture = Texture(U"UI/PNG/Yellow/star.png");
-	// きらめき効果用（オプション）
-	// m_sparkleTexture = Texture(U"Sprites/Effects/star_sparkle.png");
-
+	
 	if (!m_starTexture)
 	{
 		Print << U"Failed to load star texture";
@@ -82,7 +81,8 @@ void StarSystem::updateStar(Star& star, const Vec2& playerPosition)
 			star.collected = true;
 			m_collectedStarsCount++;
 
-			
+			// スター収集音を再生（コインと同じ音を使用）
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_COIN);
 
 			// 収集時の初期エフェクト設定
 			star.collectionPhase = 0.0;
@@ -352,7 +352,7 @@ void StarSystem::clearAllStars()
 
 void StarSystem::generateStarsForStage(StageNumber stageNumber)
 {
-	Print << U"StarSystem::generateStarsForStage called with stage: " << static_cast<int>(stageNumber);
+	
 
 	switch (stageNumber)
 	{
@@ -379,7 +379,7 @@ void StarSystem::generateStarsForStage(StageNumber stageNumber)
 		break;
 	}
 
-	Print << U"generateStarsForStage completed. Total stars: " << m_stars.size();
+	
 }
 
 void StarSystem::generateStarsForGrassStage()
@@ -389,7 +389,7 @@ void StarSystem::generateStarsForGrassStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリアの高いプラットフォーム上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリアの最高点上空  
 	addStar(Vec2(3840, 180));  // 星3: 右エリアの最高点上空
-	Print << U"Generated 3 stars for Grass Stage (unified layout)";
+	
 }
 
 void StarSystem::generateStarsForSandStage()
@@ -399,7 +399,7 @@ void StarSystem::generateStarsForSandStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリア上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリア上空
 	addStar(Vec2(3840, 180));  // 星3: 右エリア上空
-	Print << U"Generated 3 stars for Sand Stage (unified layout)";
+	
 }
 
 void StarSystem::generateStarsForPurpleStage()
@@ -409,7 +409,7 @@ void StarSystem::generateStarsForPurpleStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリア上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリア上空
 	addStar(Vec2(3840, 180));  // 星3: 右エリア上空
-	Print << U"Generated 3 stars for Purple Stage (unified layout)";
+	
 }
 
 void StarSystem::generateStarsForSnowStage()
@@ -419,7 +419,7 @@ void StarSystem::generateStarsForSnowStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリア上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリア上空
 	addStar(Vec2(3840, 180));  // 星3: 右エリア上空
-	Print << U"Generated 3 stars for Snow Stage (unified layout)";
+	
 }
 
 void StarSystem::generateStarsForStoneStage()
@@ -429,7 +429,7 @@ void StarSystem::generateStarsForStoneStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリア上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリア上空
 	addStar(Vec2(3840, 180));  // 星3: 右エリア上空
-	Print << U"Generated 3 stars for Stone Stage (unified layout)";
+	
 }
 
 void StarSystem::generateStarsForDirtStage()
@@ -439,5 +439,5 @@ void StarSystem::generateStarsForDirtStage()
 	addStar(Vec2(384, 300));   // 星1: 左エリア上空
 	addStar(Vec2(1536, 200));  // 星2: 中央エリア上空
 	addStar(Vec2(3840, 180));  // 星3: 右エリア上空
-	Print << U"Generated 3 stars for Dirt Stage (unified layout)";
+	
 }

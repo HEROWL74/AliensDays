@@ -8,6 +8,7 @@
 #include "GameOverScene.hpp"         // ゲームオーバーシーンのインクルード追加
 #include "ResultScene.hpp"           // リザルトシーンのインクルード追加
 
+
 SceneManagers::SceneManagers()
 	: m_currentScene(nullptr)
 	, m_currentSceneType(SceneType::Splash)  // 初期シーンをスプラッシュに変更
@@ -131,3 +132,4 @@ std::unique_ptr<SceneBase> SceneManagers::createScene(SceneType sceneType)
 		return nullptr;
 	}
 }
+

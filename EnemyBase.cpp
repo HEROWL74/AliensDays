@@ -39,6 +39,12 @@ void EnemyBase::onHit()
 
 void EnemyBase::onStomp()
 {
+	// 既にFlattened状態または死亡状態の場合は何もしない
+	if (m_state == EnemyState::Flattened || m_state == EnemyState::Dead)
+	{
+		return;
+	}
+
 	// 基本的な踏まれた処理
 	setState(EnemyState::Flattened);
 	m_velocity.x = 0.0;
@@ -133,6 +139,7 @@ String EnemyBase::getTypeString() const
 	case EnemyType::Ladybug:    return U"Ladybug";
 	case EnemyType::SlimeBlock: return U"SlimeBlock";
 	case EnemyType::SpikeSlime: return U"SpikeSlime";
+	case EnemyType::Fly:        return U"Fly";
 	default: return U"Unknown";
 	}
 }

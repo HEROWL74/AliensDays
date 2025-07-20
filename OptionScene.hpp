@@ -71,6 +71,7 @@ private:
 	void updateKeyboardInput();
 	void updateMouseInput();
 	void updateSliderDrag();
+	void updateSliderValue(int sliderIndex, double value);  // 新規追加
 
 	// 描画メソッド
 	void drawBackground() const;

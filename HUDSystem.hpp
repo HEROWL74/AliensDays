@@ -20,6 +20,7 @@ public:
 	void update();
 	void draw() const;
 
+
 	// ライフ管理
 	void setMaxLife(int maxLife) { m_maxLife = maxLife; }
 	void setCurrentLife(int currentLife);
@@ -51,6 +52,10 @@ public:
 
 	// ダメージ通知
 	void notifyDamage();
+
+	//ファイアボール残機管理
+	void setFireballCount(int remaining) { m_remainingFireballs = remaining; }
+	int getFireballCount() const { return m_remainingFireballs; }
 
 private:
 	// テクスチャハンドル
@@ -124,9 +129,12 @@ private:
 	void drawPlayerIcon() const;
 	void drawCoins() const;
 	void drawStars() const;  // スター描画関数（新機能）
+	void drawFireballs() const;
 
 	void drawNumber(int number, const Vec2& position) const;
 	HeartState getHeartState(int heartIndex) const;
 	Texture getPlayerIconTexture() const;
 	String getCharacterColorName(PlayerColor color) const;
+
+	int m_remainingFireballs; // ファイアボール残数
 };

@@ -8,12 +8,12 @@ private:
 	// テクスチャ
 	Texture m_backgroundTexture;
 	Texture m_gameLogoTexture;
-	Texture m_buttonTexture;  // ボタン用テクスチャ
+	Texture m_buttonTexture;
 
 	// フォント
 	Font m_titleFont;
 	Font m_messageFont;
-	Font m_buttonFont;  // ボタン用フォント
+	Font m_buttonFont;
 
 	// ボタンの種類
 	enum class ButtonAction
@@ -34,8 +34,11 @@ private:
 
 	// ボタン関連
 	Array<ButtonData> m_buttons;
-	int m_selectedButton;      // 現在選択されているボタン
-	double m_buttonHoverTimer; // ホバー効果用タイマー
+	int m_selectedButton;
+	double m_buttonHoverTimer;
+
+	// サウンド関連
+	bool m_bgmStarted;
 
 	Optional<SceneType> m_nextScene;
 
@@ -59,4 +62,5 @@ private:
 	void drawAnimatedLogo() const;
 	void drawBackgroundParticles() const;
 	void drawControlInstructions() const;
+	void drawSoundDebugInfo() const;  // デバッグ用
 };

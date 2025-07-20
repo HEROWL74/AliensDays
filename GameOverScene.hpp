@@ -44,6 +44,8 @@ private:
 
 	Optional<SceneType> m_nextScene;
 
+	bool m_sePlayedOnce; //SE再生フラグを追加
+
 public:
 	GameOverScene();
 	~GameOverScene() override = default;

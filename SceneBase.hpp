@@ -11,7 +11,7 @@ enum class SceneType
 	Credit,        // クレジットシーンを追加
 	Game,
 	GameOver,      // ゲームオーバーシーンを追加
-	Result         // リザルトシーンを追加
+	Result,        // リザルトシーンを追加
 };
 
 // シーンの基底クラス

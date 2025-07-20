@@ -1,4 +1,5 @@
 ﻿#include "CoinSystem.hpp"
+#include "SoundManager.hpp"
 
 CoinSystem::CoinSystem()
 	: m_collectedCoinsCount(0)
@@ -74,6 +75,9 @@ void CoinSystem::updateCoin(Coin& coin, const Vec2& playerPosition, const Vec2& 
 
 		
 			m_collectedCoinsCount++;
+
+			// コイン収集音を再生
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_COIN);
 		}
 		break;
 

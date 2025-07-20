@@ -1,6 +1,6 @@
 ﻿#include "GameOverScene.hpp"
 #include "GameScene.hpp"
-
+#include "SoundManager.hpp"
 GameOverScene::GameOverScene()
 	: m_selectedButton(0)
 	, m_animationTimer(0.0)
@@ -16,16 +16,12 @@ void GameOverScene::init()
 	loadTextures();
 
 	// フォントの初期化
-	m_titleFont = Font(48, Typeface::Bold);
+	m_titleFont = Font(36, Typeface::Bold);
 	m_messageFont = Font(24);
 	m_buttonFont = Font(20, Typeface::Bold);
 
 	// GameSceneからデータを取得
-	m_currentStage = GameScene::getNextStageNumber();
-	if (static_cast<int>(m_currentStage) > 1)
-	{
-		m_currentStage = static_cast<StageNumber>(static_cast<int>(m_currentStage) - 1);
-	}
+	m_currentStage = GameScene::getGameOverStage();  // ゲームオーバーしたステージを取得
 	m_playerColor = GameScene::getResultPlayerColor();
 
 	// UI要素の設定
@@ -36,12 +32,17 @@ void GameOverScene::init()
 	m_fadeAlpha = 1.0;
 	m_selectedButton = 0;
 	m_nextScene = none;
+	m_sePlayedOnce = false;
 }
-
 void GameOverScene::update()
 {
 	m_animationTimer += Scene::DeltaTime();
-
+	// ゲームオーバー時のSEを一回だけ再生
+	if (!m_sePlayedOnce && m_animationTimer >= 0.5)  // 0.5秒後に再生
+	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_DISAPPEAR);
+		m_sePlayedOnce = true;
+	}
 	updateAnimations();
 	updateInput();
 }
@@ -133,16 +134,32 @@ void GameOverScene::setupButtons()
 	m_buttons.push_back(titleButton);
 }
 
+
 void GameOverScene::updateInput()
 {
+	// 前回の選択を保存
+	const int previousSelection = m_selectedButton;
+
 	// キーボード操作
 	if (KeyUp.down() || KeyW.down())
 	{
 		m_selectedButton = (m_selectedButton - 1 + static_cast<int>(m_buttons.size())) % static_cast<int>(m_buttons.size());
+
+		// 選択が変わった場合はSEを再生
+		if (m_selectedButton != previousSelection)
+		{
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+		}
 	}
 	if (KeyDown.down() || KeyS.down())
 	{
 		m_selectedButton = (m_selectedButton + 1) % static_cast<int>(m_buttons.size());
+
+		// 選択が変わった場合はSEを再生
+		if (m_selectedButton != previousSelection)
+		{
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+		}
 	}
 
 	// マウス操作
@@ -151,7 +168,11 @@ void GameOverScene::updateInput()
 	{
 		if (m_buttons[i].rect.contains(mousePos))
 		{
-			m_selectedButton = static_cast<int>(i);
+			if (m_selectedButton != static_cast<int>(i))
+			{
+				m_selectedButton = static_cast<int>(i);
+				SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+			}
 			break;
 		}
 	}
@@ -160,12 +181,14 @@ void GameOverScene::updateInput()
 	if (KeyEnter.down() || KeySpace.down() ||
 		(MouseL.down() && m_buttons[m_selectedButton].rect.contains(mousePos)))
 	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		executeButton(m_selectedButton);
 	}
 
 	// ESCでタイトルに戻る
 	if (KeyEscape.down())
 	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		GameScene::clearResultData();
 		m_nextScene = SceneType::Title;
 	}
@@ -292,6 +315,7 @@ void GameOverScene::drawParticleEffects() const
 	}
 }
 
+
 void GameOverScene::executeButton(int buttonIndex)
 {
 	if (buttonIndex < 0 || buttonIndex >= static_cast<int>(m_buttons.size()))
@@ -302,19 +326,18 @@ void GameOverScene::executeButton(int buttonIndex)
 	switch (action)
 	{
 	case ButtonAction::Retry:
-		// リトライモードを設定
+		// リトライモードを設定（clearResultDataは呼ばない）
 		GameScene::setRetryMode();
 		m_nextScene = SceneType::Game;
 		break;
 
 	case ButtonAction::CharacterSelect:
-		// キャラクター選択画面に戻る
-		GameScene::clearResultData();
+		// キャラクター選択画面に戻る（clearResultDataは呼ばない）
 		m_nextScene = SceneType::CharacterSelect;
 		break;
 
 	case ButtonAction::Title:
-		// タイトル画面に戻る
+		// タイトル画面に戻る時のみクリア
 		GameScene::clearResultData();
 		m_nextScene = SceneType::Title;
 		break;

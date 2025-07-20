@@ -1,4 +1,5 @@
 ﻿#include "CharacterSelectScene.hpp"
+#include "SoundManager.hpp"
 
 // 静的変数の定義
 PlayerColor CharacterSelectScene::s_selectedPlayerColor = PlayerColor::Green;
@@ -11,6 +12,9 @@ CharacterSelectScene::CharacterSelectScene()
 	, m_animationTimer(0.0)
 	, m_nextScene(none)
 {
+	// ステータスバーアニメーション用配列を初期化（4つのステータス）
+	m_currentStatValues.resize(4, 0.0);
+	m_targetStatValues.resize(4, 0.0);
 }
 
 void CharacterSelectScene::init()
@@ -25,6 +29,13 @@ void CharacterSelectScene::init()
 	m_titleFont = Font(36, Typeface::Bold);
 	m_labelFont = Font(24);
 	m_buttonFont = Font(20, Typeface::Bold);
+
+	// タイトルBGMが再生されていない場合は開始
+	SoundManager& soundManager = SoundManager::GetInstance();
+	if (!soundManager.isBGMPlaying(SoundManager::SoundType::BGM_TITLE))
+	{
+		soundManager.playBGM(SoundManager::SoundType::BGM_TITLE);
+	}
 
 	// UI要素の設定
 	setupCharacters();
@@ -41,6 +52,11 @@ void CharacterSelectScene::init()
 	// スパークルエフェクトの初期化
 	m_sparklePositions.clear();
 	m_sparkleTimers.clear();
+
+	// 初期キャラクターのステータス値を設定
+	updateTargetStatValues();
+	// 初期表示では即座に目標値に設定
+	m_currentStatValues = m_targetStatValues;
 }
 
 void CharacterSelectScene::update()
@@ -50,6 +66,7 @@ void CharacterSelectScene::update()
 
 	updateInput();
 	updateAnimations();
+	updateStatAnimations();  // ステータスバーアニメーション更新
 }
 
 void CharacterSelectScene::draw() const
@@ -64,6 +81,9 @@ void CharacterSelectScene::draw() const
 	drawSparkles();
 	drawButtons();
 	drawInstructions();
+
+	// キャラクター特性を画面右側に表示
+	drawCharacterStats();
 }
 
 Optional<SceneType> CharacterSelectScene::getNextScene() const
@@ -73,6 +93,7 @@ Optional<SceneType> CharacterSelectScene::getNextScene() const
 
 void CharacterSelectScene::cleanup()
 {
+	// BGMは停止しない（タイトルBGMを継続）
 	// 必要に応じてクリーンアップ
 }
 
@@ -155,7 +176,7 @@ void CharacterSelectScene::setupButtons()
 	// SELECTボタン
 	m_selectButtonRect = RectF(
 		Scene::Center().x - buttonWidth - 10,
-		buttonY +100,
+		buttonY + 100,
 		buttonWidth,
 		buttonHeight
 	);
@@ -163,7 +184,7 @@ void CharacterSelectScene::setupButtons()
 	// BACKボタン
 	m_backButtonRect = RectF(
 		Scene::Center().x + 10,
-		buttonY +100,
+		buttonY + 100,
 		buttonWidth,
 		buttonHeight
 	);
@@ -176,18 +197,23 @@ void CharacterSelectScene::updateInput()
 	m_selectButtonHovered = m_selectButtonRect.contains(mousePos);
 	m_backButtonHovered = m_backButtonRect.contains(mousePos);
 
+	// 前の選択を保存
+	const int previousCharacter = m_selectedCharacter;
+
 	// キャラクター選択（キーボード）
 	if (KeyLeft.down() || KeyA.down())
 	{
 		m_selectedCharacter = (m_selectedCharacter - 1 + static_cast<int>(m_characters.size())) % static_cast<int>(m_characters.size());
 		m_selectionTimer = 0.0;
 		createSparkleEffect(m_characters[m_selectedCharacter].displayPos);
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
 	if (KeyRight.down() || KeyD.down())
 	{
 		m_selectedCharacter = (m_selectedCharacter + 1) % static_cast<int>(m_characters.size());
 		m_selectionTimer = 0.0;
 		createSparkleEffect(m_characters[m_selectedCharacter].displayPos);
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
 
 	// マウスでキャラクター選択
@@ -200,9 +226,16 @@ void CharacterSelectScene::updateInput()
 				m_selectedCharacter = static_cast<int>(i);
 				m_selectionTimer = 0.0;
 				createSparkleEffect(m_characters[i].displayPos);
+				SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 			}
 			break;
 		}
+	}
+
+	// キャラクターが変更された場合、ステータス値を更新
+	if (m_selectedCharacter != previousCharacter)
+	{
+		updateTargetStatValues();
 	}
 
 	// 選択決定
@@ -212,12 +245,14 @@ void CharacterSelectScene::updateInput()
 	{
 		// 選択されたキャラクターを保存
 		s_selectedPlayerColor = m_characters[m_selectedCharacter].color;
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Game;
 	}
 
 	// 戻る
 	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered))
 	{
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Title;
 	}
 }
@@ -238,6 +273,42 @@ void CharacterSelectScene::updateAnimations()
 			++i;
 		}
 	}
+}
+
+void CharacterSelectScene::updateStatAnimations()
+{
+	const double deltaTime = Scene::DeltaTime();
+
+	// 各ステータス値を目標値に向けてスムーズに補間
+	for (size_t i = 0; i < m_currentStatValues.size() && i < m_targetStatValues.size(); ++i)
+	{
+		const double diff = m_targetStatValues[i] - m_currentStatValues[i];
+		const double moveAmount = diff * STAT_ANIMATION_SPEED * deltaTime;
+
+		// 小さな差の場合は即座に目標値に設定
+		if (std::abs(diff) < 0.01)
+		{
+			m_currentStatValues[i] = m_targetStatValues[i];
+		}
+		else
+		{
+			m_currentStatValues[i] += moveAmount;
+		}
+	}
+}
+
+void CharacterSelectScene::updateTargetStatValues()
+{
+	if (m_selectedCharacter < 0 || m_selectedCharacter >= static_cast<int>(m_characters.size()))
+		return;
+
+	const PlayerStats stats = getPlayerStats(m_characters[m_selectedCharacter].color);
+
+	// 目標値を設定（正規化された値：0.0-1.0の範囲）
+	m_targetStatValues[0] = static_cast<double>(stats.maxLife / 2) / 4.0;  // ライフ（最大4ハート）
+	m_targetStatValues[1] = stats.moveSpeed / 1.5;  // 移動速度（最大1.5倍程度を想定）
+	m_targetStatValues[2] = stats.jumpPower / 1.5;  // ジャンプ力（最大1.5倍程度を想定）
+	m_targetStatValues[3] = stats.invincibleTime / 1.5;  // 無敵時間（最大1.5倍程度を想定）
 }
 
 void CharacterSelectScene::drawBackground() const
@@ -334,6 +405,143 @@ void CharacterSelectScene::drawCharacter(const CharacterData& character, bool is
 			// フォールバック
 			Circle(pos, 40).draw(ColorF(getColorTint(character.color).r, getColorTint(character.color).g, getColorTint(character.color).b, 0.8));
 		}
+	}
+}
+
+void CharacterSelectScene::drawCharacterStats() const
+{
+	if (m_selectedCharacter < 0 || m_selectedCharacter >= static_cast<int>(m_characters.size()))
+		return;
+
+	const PlayerColor selectedColor = m_characters[m_selectedCharacter].color;
+	const PlayerStats stats = getPlayerStats(selectedColor);
+
+	// 右側パネルの設定
+	const double panelWidth = 320.0;
+	const double panelHeight = 400.0;
+	const double panelX = Scene::Width() - panelWidth - 20;
+	const double panelY = Scene::Center().y - panelHeight / 2;
+
+	const RectF panelRect(panelX, panelY, panelWidth, panelHeight);
+
+	// パネル背景
+	panelRect.draw(ColorF(0.05, 0.05, 0.15, 0.9));
+	panelRect.drawFrame(3.0, getColorTint(selectedColor));
+
+	// 内側の装飾
+	const RectF innerRect = panelRect.stretched(-8);
+	innerRect.drawFrame(1.0, ColorF(0.6, 0.6, 0.4, 0.3));
+
+	// キャラクター名
+	const Vec2 namePos = Vec2(panelRect.center().x, panelY + 40);
+	Font(28, Typeface::Bold)(getColorName(selectedColor)).drawAt(namePos, getColorTint(selectedColor));
+
+	// 特性名
+	const Vec2 traitPos = Vec2(panelRect.center().x, panelY + 80);
+	Font(20, Typeface::Bold)(stats.trait).drawAt(traitPos, ColorF(1.0, 1.0, 0.8));
+
+	// 説明文
+	const Vec2 descPos = Vec2(panelRect.center().x, panelY + 110);
+	Font(16)(stats.description).drawAt(descPos, ColorF(0.9, 0.9, 0.9));
+
+	// ステータス表示（アニメーション値を使用）
+	const double statsStartY = panelY + 160;
+	const double statSpacing = 35.0;
+
+	// ライフ（アニメーション値を使用）
+	drawAnimatedStatBar(U"ライフ", m_currentStatValues[0], panelRect.center().x, statsStartY, ColorF(1.0, 0.3, 0.3));
+
+	// 移動速度（アニメーション値を使用）
+	drawAnimatedStatBar(U"移動速度", m_currentStatValues[1], panelRect.center().x, statsStartY + statSpacing, ColorF(0.3, 1.0, 0.3));
+
+	// ジャンプ力（アニメーション値を使用）
+	drawAnimatedStatBar(U"ジャンプ力", m_currentStatValues[2], panelRect.center().x, statsStartY + statSpacing * 2, ColorF(0.3, 0.3, 1.0));
+
+	// 無敵時間（アニメーション値を使用）
+	drawAnimatedStatBar(U"無敵時間", m_currentStatValues[3], panelRect.center().x, statsStartY + statSpacing * 3, ColorF(1.0, 1.0, 0.3));
+
+	// 数値表示
+	const Vec2 numericPos = Vec2(panelRect.center().x, panelY + 320);
+	const String numericText = U"数値: 移動{:.1f} ジャンプ{:.1f} 無敵{:.1f}s"_fmt(
+		stats.moveSpeed, stats.jumpPower, stats.invincibleTime * 2.0
+	);
+	Font(12)(numericText).drawAt(numericPos, ColorF(0.7, 0.7, 0.7));
+
+	// おすすめプレイヤータイプ
+	const Vec2 recommendPos = Vec2(panelRect.center().x, panelY + 350);
+	String recommend;
+	switch (selectedColor)
+	{
+	case PlayerColor::Green:  recommend = U"初心者におすすめ"; break;
+	case PlayerColor::Pink:   recommend = U"スピード重視の方に"; break;
+	case PlayerColor::Purple: recommend = U"アクション好きの方に"; break;
+	case PlayerColor::Beige:  recommend = U"安全重視の方に"; break;
+	case PlayerColor::Yellow: recommend = U"上級者向け"; break;
+	}
+	Font(14)(recommend).drawAt(recommendPos, ColorF(0.8, 0.8, 1.0));
+}
+
+void CharacterSelectScene::drawAnimatedStatBar(const String& label, double normalizedValue, double centerX, double y, const ColorF& color) const
+{
+	const double barWidth = 200.0;
+	const double barHeight = 16.0;
+	const double barX = centerX - barWidth / 2;
+
+	// 正規化された値を0.0-1.0にクランプ
+	const double clampedValue = Math::Clamp(normalizedValue, 0.0, 1.0);
+
+	// ラベル
+	Font(16)(label).draw(barX, y - 20, ColorF(0.9, 0.9, 0.9));
+
+	// バー背景
+	RectF(barX, y, barWidth, barHeight).draw(ColorF(0.2, 0.2, 0.2));
+
+	// バー本体（アニメーション値を使用）
+	const double fillWidth = barWidth * clampedValue;
+	RectF(barX, y, fillWidth, barHeight).draw(color);
+
+	// バー枠
+	RectF(barX, y, barWidth, barHeight).drawFrame(1.0, ColorF(0.6, 0.6, 0.6));
+
+	// 区切り線（4等分）
+	for (int i = 1; i < 4; ++i)
+	{
+		const double lineX = barX + (barWidth * i) / 4.0;
+		Line(lineX, y, lineX, y + barHeight).draw(1.0, ColorF(0.4, 0.4, 0.4));
+	}
+
+	// 光る効果（バーが満たされている部分のみ）
+	if (fillWidth > 0)
+	{
+		const double glowAlpha = 0.3 + 0.2 * std::sin(Scene::Time() * 3.0);
+		RectF(barX, y, fillWidth, barHeight).draw(ColorF(color.r, color.g, color.b, glowAlpha));
+	}
+}
+
+void CharacterSelectScene::drawStatBar(const String& label, int value, int maxValue, double centerX, double y, const ColorF& color) const
+{
+	const double barWidth = 200.0;
+	const double barHeight = 16.0;
+	const double barX = centerX - barWidth / 2;
+
+	// ラベル
+	Font(16)(label).draw(barX, y - 20, ColorF(0.9, 0.9, 0.9));
+
+	// バー背景
+	RectF(barX, y, barWidth, barHeight).draw(ColorF(0.2, 0.2, 0.2));
+
+	// バー本体
+	const double fillWidth = (barWidth * value) / maxValue;
+	RectF(barX, y, fillWidth, barHeight).draw(color);
+
+	// バー枠
+	RectF(barX, y, barWidth, barHeight).drawFrame(1.0, ColorF(0.6, 0.6, 0.6));
+
+	// 区切り線
+	for (int i = 1; i < maxValue; ++i)
+	{
+		const double lineX = barX + (barWidth * i) / maxValue;
+		Line(lineX, y, lineX, y + barHeight).draw(1.0, ColorF(0.4, 0.4, 0.4));
 	}
 }
 

@@ -11,7 +11,9 @@ enum class PlayerState
 	Jump,
 	Duck,
 	Hit,
-	Climb
+	Climb,
+	Exploding,  // 爆散状態
+	Dead        // 死亡状態
 };
 
 // プレイヤーの向き
@@ -21,34 +23,99 @@ enum class PlayerDirection
 	Right
 };
 
+// ファイアボール構造体
+struct Fireball
+{
+	Vec2 position;
+	Vec2 velocity;
+	double rotation;
+	double rotationSpeed;
+	bool active;
+	double lifetime;
+	double maxLifetime;
+
+	Fireball(const Vec2& pos, const Vec2& vel)
+		: position(pos), velocity(vel), rotation(0.0)
+		, rotationSpeed(8.0), active(true)
+		, lifetime(0.0), maxLifetime(3.0)
+	{
+	}
+};
+
 class Player
 {
 private:
-	// プレイヤー情報
 	PlayerColor m_color;
+	PlayerStats m_stats;
 	Vec2 m_position;
 	Vec2 m_velocity;
 	PlayerState m_currentState;
 	PlayerDirection m_direction;
 
 	// スプライト関連
-	HashTable<String, Texture> m_textures;  // スプライトテクスチャ
+	HashTable<String, Texture> m_textures;
 	double m_animationTimer;
 	double m_stateTimer;
 	bool m_isGrounded;
 
-	// アニメーション設定
-	static constexpr double WALK_ANIMATION_SPEED = 0.3;  // ウォークアニメーション速度
-	static constexpr double CLIMB_ANIMATION_SPEED = 0.4; // クライムアニメーション速度
-	static constexpr double HIT_DURATION = 0.5;         // ヒット状態の持続時間
-	static constexpr double JUMP_THRESHOLD = 0.1;       // ジャンプ判定の閾値
+	// 無敵時間関連
+	bool m_isInvincible;
+	double m_invincibleTimer;
 
-	// 物理パラメータ
-	static constexpr double MOVE_SPEED = 350.0;         // 移動速度（上げました）
-	static constexpr double JUMP_POWER = 650.0;         // ジャンプ力（上げました）
-	static constexpr double GRAVITY = 600.0;            // 重力
-	static constexpr double GROUND_Y = 500.0;           // 地面のY座標
-	static constexpr double AIR_CONTROL = 0.8;          // 空中制御係数（新規追加）
+	// 爆散エフェクト関連
+	bool m_isExploding;
+	double m_explosionTimer;
+	double m_deathTimer;
+
+	// パーティクルシステム
+	struct ExplosionParticle
+	{
+		Vec2 position;
+		Vec2 velocity;
+		double life;
+		double maxLife;
+		double size;
+		ColorF color;
+		double rotation;
+		double rotationSpeed;
+
+		ExplosionParticle(const Vec2& pos, const Vec2& vel, const ColorF& col)
+			: position(pos), velocity(vel), color(col)
+			, life(Random(0.8, 1.5)), maxLife(life)
+			, size(Random(3.0, 8.0))
+			, rotation(Random(0.0, Math::TwoPi))
+			, rotationSpeed(Random(-10.0, 10.0))
+		{
+		}
+	};
+
+	Array<ExplosionParticle> m_explosionParticles;
+	Array<Vec2> m_shockwaves;
+	Array<double> m_shockwaveTimers;
+
+	// ファイアボール関連のメンバー変数
+	Array<Fireball> m_fireballs;
+	Texture m_fireballTexture;
+	int m_fireballCount;
+	static constexpr int MAX_FIREBALLS_PER_STAGE = 10;
+	static constexpr double FIREBALL_SPEED = 400.0;
+	static constexpr double FIREBALL_GRAVITY = 300.0;
+
+	// 定数
+	static constexpr double WALK_ANIMATION_SPEED = 0.3;
+	static constexpr double CLIMB_ANIMATION_SPEED = 0.4;
+	static constexpr double HIT_DURATION = 0.5;
+	static constexpr double JUMP_THRESHOLD = 0.1;
+	static constexpr double BASE_MOVE_SPEED = 350.0;
+	static constexpr double BASE_JUMP_POWER = 650.0;
+	static constexpr double BASE_INVINCIBLE_DURATION = 2.0;
+	static constexpr double GRAVITY = 600.0;
+	static constexpr double GROUND_Y = 500.0;
+	static constexpr double AIR_CONTROL = 0.8;
+	static constexpr double EXPLOSION_DURATION = 1.5;
+	static constexpr double DEATH_DELAY = 2.0;
+	static constexpr int EXPLOSION_PARTICLE_COUNT = 25;
+	static constexpr double PARTICLE_GRAVITY = 300.0;
 
 public:
 	Player();
@@ -71,18 +138,27 @@ public:
 	PlayerState getCurrentState() const { return m_currentState; }
 	void setDirection(PlayerDirection direction) { m_direction = direction; }
 	PlayerDirection getDirection() const { return m_direction; }
-	void setGrounded(bool grounded) { m_isGrounded = grounded; }  // 接地状態設定
+	void setGrounded(bool grounded) { m_isGrounded = grounded; }
+
+	// 無敵状態関連
+	bool isInvincible() const { return m_isInvincible; }
+	void setInvincible(bool invincible) { m_isInvincible = invincible; }
+	double getInvincibleTimer() const { return m_invincibleTimer; }
+
+	// 爆散関連のメソッド
+	void startExplosion();
+	bool isExploding() const { return m_isExploding; }
+	bool isDead() const { return m_currentState == PlayerState::Dead; }
+	double getDeathTimer() const { return m_deathTimer; }
 
 	// 位置・移動
 	Vec2 getPosition() const { return m_position; }
 	void setPosition(const Vec2& position) { m_position = position; }
-	//void setPosition(const Vec2& position) const { const_cast<Player*>(this)->m_position = position; }  // const版追加
 	Vec2 getVelocity() const { return m_velocity; }
 	void setVelocity(const Vec2& velocity) { m_velocity = velocity; }
 
 	// 物理
 	void applyGravity();
-	void checkGroundCollision();
 	bool isGrounded() const { return m_isGrounded; }
 
 	// アニメーション
@@ -97,6 +173,21 @@ public:
 	void hit();
 	void duck();
 
+	// ファイアボール関連のメソッド
+	void fireFireball();
+	void updateFireballs();
+	void drawFireballs() const;
+	void deactivateFireball(const Vec2& position);
+	const Array<Fireball>& getFireballs() const { return m_fireballs; }
+	int getFireballCount() const { return m_fireballCount; }
+	int getRemainingFireballs() const { return MAX_FIREBALLS_PER_STAGE - m_fireballCount; }
+	void resetFireballCount() { m_fireballCount = 0; }
+
+	// キャラクター情報
+	PlayerColor getColor() const { return m_color; }
+	PlayerStats getStats() const { return m_stats; }
+	int getMaxLife() const { return m_stats.maxLife; }
+
 	// ユーティリティ
 	String getColorString() const;
 	String getStateString() const;
@@ -104,7 +195,26 @@ public:
 private:
 	// 内部ヘルパーメソッド
 	void updatePhysics();
+	void updateBasicPhysics();
+	void checkBasicGroundCollision();
 	void updateStateTransitions();
+	void updateGroundStateTransitions();
+	void updateInvincibility();
 	String buildTextureKey(const String& action) const;
 	String buildTextureKey(const String& action, const String& variant) const;
+
+	// 特性を適用した値を取得
+	double getActualMoveSpeed() const { return BASE_MOVE_SPEED * m_stats.moveSpeed; }
+	double getActualJumpPower() const { return BASE_JUMP_POWER * m_stats.jumpPower; }
+	double getActualInvincibleDuration() const { return BASE_INVINCIBLE_DURATION * m_stats.invincibleTime; }
+
+	// 爆散エフェクトの内部メソッド
+	void updateExplosion();
+	void createExplosionParticles();
+	void createShockwaves();
+	void updateExplosionParticles();
+	void updateShockwaves();
+	void drawExplosionEffect() const;
+	void drawExplosionParticles() const;
+	void drawShockwaves() const;
 };
