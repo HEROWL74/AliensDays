@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#Appフォルダの特定の中身だけ除外
+App/AS_DEBUG/
+App/example/
+App/dll/
+App/engine/
