@@ -793,19 +793,19 @@
     </Xml>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="App\Shaders\Glow.hlsl">
+    <FxCompile Include="Shaders\ChromaticAberration.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="App\Shaders\Wave.hlsl">
+    <FxCompile Include="Shaders\DayNight.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="App\Shaders\ChromaticAberration.hlsl">
+    <FxCompile Include="Shaders\Glow.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="App\Shaders\Shockwave.hlsl">
+    <FxCompile Include="Shaders\Shockwave.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="App\Shaders\DayNight.hlsl">
+    <FxCompile Include="Shaders\Wave.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

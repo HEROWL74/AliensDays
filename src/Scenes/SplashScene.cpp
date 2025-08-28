@@ -1,5 +1,5 @@
 ﻿#include "SplashScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 SplashScene::SplashScene()
 	: m_timer(0.0)
