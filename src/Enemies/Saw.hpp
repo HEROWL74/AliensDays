@@ -26,6 +26,10 @@ public:
 	Saw(const Vec2& startPosition);
 	~Saw() override = default;
 
+	//ファクトリーパターンのEnemyKey
+	String typeKey() const noexcept override { return U"Saw"; }
+	String currentVisualKey() const override;
+
 	// EnemyBaseの純粋仮想関数の実装
 	void init() override;
 	void update() override;

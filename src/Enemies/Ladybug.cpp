@@ -1,4 +1,5 @@
 ﻿#include "Ladybug.hpp"
+#include "EnemyFactory.hpp"
 
 Ladybug::Ladybug(const Vec2& startPosition)
 	: EnemyBase(EnemyType::Ladybug, startPosition)
@@ -418,3 +419,35 @@ void Ladybug::drawHitEffect() const
 		Circle(m_position, 35).draw(ColorF(1.0, 0.3, 0.0, alpha));
 	}
 }
+
+String Ladybug::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Walk:
+		if (m_isFlyMode)
+		{
+			return U"ladybug_fly";
+		}
+		else
+		{
+			const bool useVariantA = std::fmod(m_animationTimer, WALK_ANIMATION_SPEED * 2) < WALK_ANIMATION_SPEED;
+			return useVariantA ? U"ladybug_walk_a" : U"ladybug_walk_b";
+		}
+		return U"ladybug_rest";
+	case EnemyState::Flattened:
+	case EnemyState::Hit:
+	case EnemyState::Dead:
+	case EnemyState::Idle:
+		return U"ladybug_rest";
+	default:
+		return U"ladybug_rest";
+	}
+}
+
+static EnemyAutoRegister _regLadybug{
+	U"Ladybug",
+	[](const Vec2& pos) {
+		return std::make_unique<Ladybug>(pos);
+    }
+};

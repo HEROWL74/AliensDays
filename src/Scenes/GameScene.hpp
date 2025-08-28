@@ -19,6 +19,8 @@
 #include "../Systems/CollisionSystem.hpp"
 #include "../Effects/ShaderEffects.hpp"
 #include "../Systems/DayNightSystem.hpp"
+#include "../Enemies/EnemyFactory.hpp"
+
 // ファイアボール撃破エフェクト用の構造体
 struct FireballParticle
 {

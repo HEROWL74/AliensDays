@@ -1,4 +1,5 @@
 ﻿#include "Bee.hpp"
+#include "EnemyFactory.hpp"
 
 Bee::Bee(const Vec2& startPosition)
 	: EnemyBase(EnemyType::Bee, startPosition)
@@ -412,3 +413,30 @@ void Bee::drawHitEffect() const
 		Circle(m_position, 30).draw(ColorF(1.0, 0.8, 0.0, alpha));
 	}
 }
+
+String Bee::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Walk:
+		if (m_isFlying)
+		{
+			const bool useVariantA = std::fmod(m_animationTimer, FLY_ANIMATION_SPEED * 2) < FLY_ANIMATION_SPEED;
+			return useVariantA ? U"bee_a" : U"bee_b";
+		}
+		return U"bee_rest";
+	case EnemyState::Flattened:
+	case EnemyState::Hit:
+	case EnemyState::Dead:
+	case EnemyState::Idle:
+	default:
+		return U"bee_rest";
+	}
+}
+
+static EnemyAutoRegister _regBee{
+	U"Bee",
+	[](const Vec2& pos) {
+		return std::make_unique<Bee>(pos);
+    }
+};

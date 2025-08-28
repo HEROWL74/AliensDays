@@ -803,6 +803,7 @@ void GameScene::initEnemies()
 		// Stage1: 草原ステージ - 1ブロック基準での配置
 
 		// 序盤エリア (12-24ブロック目)
+		addEnemy(spawnEnemy(U"Fly", Vec2{ 19 * BLOCK_SIZE, 8 * BLOCK_SIZE }));
 		addEnemy(std::make_unique<NormalSlime>(Vec2(12 * BLOCK_SIZE, GROUND_LEVEL)));
 		addEnemy(std::make_unique<NormalSlime>(Vec2(16 * BLOCK_SIZE, GROUND_LEVEL)));
 		addEnemy(std::make_unique<Fly>(Vec2(19 * BLOCK_SIZE, 8 * BLOCK_SIZE)));
