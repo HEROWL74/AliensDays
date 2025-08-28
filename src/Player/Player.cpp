@@ -1,5 +1,5 @@
 ﻿#include "Player.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 Player::Player()
 	: m_color(PlayerColor::Green)

@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "PlayerColor.hpp"
+#include "../Player/PlayerColor.hpp"
 
 // プレイヤーのアニメーション状態
 enum class PlayerState

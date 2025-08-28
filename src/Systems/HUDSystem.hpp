@@ -36,7 +36,7 @@ public:
 	// コイン管理
 	void setCoins(int coins) { m_coins = coins; }
 	void addCoins(int amount) { m_coins += amount; }
-	void subtractCoins(int amount) { m_coins = Math::Max(0, (float)m_coins - amount); }
+	void subtractCoins(int amount) { m_coins = Math::Max(0, static_cast<float>(m_coins) - amount); }
 	int getCoins() const { return m_coins; }
 
 	// スター管理（新機能）

@@ -1,6 +1,6 @@
 ﻿#include "CollisionSystem.hpp"
-#include "Player.hpp"
-#include "Stage.hpp"
+#include "../Player/Player.hpp"
+#include "../Stages/Stage.hpp"
 #include "BlockSystem.hpp"
 
 void CollisionSystem::resolvePlayerCollisions(Player* player, Stage* stage, BlockSystem* blockSystem)
