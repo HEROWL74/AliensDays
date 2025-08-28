@@ -27,6 +27,10 @@ public:
 	SpikeSlime(const Vec2& startPosition);
 	~SpikeSlime() override = default;
 
+	//ファクトリーパターンのEnemyKey
+	String typeKey() const noexcept override { return U"SpikeSlime"; }
+	String currentVisualKey() const override;
+
 	// EnemyBaseの純粋仮想関数の実装
 	void init() override;
 	void update() override;

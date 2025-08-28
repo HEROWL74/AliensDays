@@ -1,4 +1,5 @@
 ﻿#include "SpikeSlime.hpp"
+#include "EnemyFactory.hpp"
 
 SpikeSlime::SpikeSlime(const Vec2& startPosition)
 	: EnemyBase(EnemyType::SpikeSlime, startPosition)
@@ -288,3 +289,35 @@ void SpikeSlime::drawHitEffect() const
 		Circle(m_position, 40).draw(ColorF(1.0, 0.2, 0.2, alpha));
 	}
 }
+
+String SpikeSlime::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Idle:
+		return U"slime_spike_rest";
+		break;
+	case EnemyState::Walk:
+	{
+		const bool useVariantA = std::fmod(m_animationTimer, WALK_ANIMATION_SPEED * 2) < WALK_ANIMATION_SPEED;
+		return useVariantA ? U"slime_spike_walk_a" : U"slime_spike_walk_b";
+	}
+	break;
+	case EnemyState::Hit:
+		return U"slime_spike_rest";
+		break;
+	case EnemyState::Dead:
+		return U"slime_spike_flat";
+		break;
+	default:
+		return U"slime_spike_rest";
+		break;
+	}
+}
+
+static EnemyAutoRegister _regSpikeSlime{
+	U"SpikeSlime",
+	[](const Vec2& pos) {
+		return std::make_unique<SpikeSlime>(pos);
+	}
+};

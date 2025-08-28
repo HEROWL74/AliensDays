@@ -1,9 +1,9 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "SceneBase.hpp"
-#include "Stage.hpp"
-#include "PlayerColor.hpp"
-#include "SoundManager.hpp"
+#include "../Core/SceneBase.hpp"
+#include "../Stages/Stage.hpp"
+#include "../Player/PlayerColor.hpp"
+#include "../Sound/SoundManager.hpp"
 
 class ResultScene final : public SceneBase
 {

@@ -1,4 +1,5 @@
 ﻿#include "SlimeBlock.hpp"
+#include "EnemyFactory.hpp"
 
 SlimeBlock::SlimeBlock(const Vec2& startPosition)
 	: EnemyBase(EnemyType::SlimeBlock, startPosition)
@@ -370,3 +371,38 @@ void SlimeBlock::drawHitEffect() const
 		Circle(m_position, 45).draw(ColorF(0.5, 0.5, 1.0, alpha));
 	}
 }
+
+String SlimeBlock::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Idle:
+		return U"slime_block_rest";
+	case EnemyState::Walk:
+		if (m_isJumping)
+		{
+			return U"slime_block_jump";
+		}
+		else
+		{
+			const bool useVariantA = std::fmod(m_animationTimer, WALK_ANIMATION_SPEED * 2) < WALK_ANIMATION_SPEED;
+			return useVariantA ? U"slime_block_walk_a" : U"slime_block_walk_b";
+		}
+		return U"slime_block_rest";
+	case EnemyState::Flattened:
+		return U"slime_block_rest";
+	case EnemyState::Hit:
+		return U"slime_block_rest";
+	case EnemyState::Dead:
+		return U"slime_block_rest";
+	default:
+		return U"slime_block_rest";
+	}
+}
+
+static EnemyAutoRegister _regSlimeBlock{
+	U"SlimeBlock",
+	[](const Vec2& pos) {
+		return std::make_unique<SlimeBlock>(pos);
+	}
+};

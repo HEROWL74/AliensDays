@@ -1,12 +1,12 @@
 ﻿#include "SceneManagers.hpp"
-#include "SplashScene.hpp"
-#include "TitleScene.hpp"
-#include "CharacterSelectScene.hpp"
-#include "OptionScene.hpp"
-#include "CreditScene.hpp"
-#include "GameScene.hpp"
-#include "GameOverScene.hpp"
-#include "ResultScene.hpp"
+#include "../Scenes/SplashScene.hpp"
+#include "../Scenes/TitleScene.hpp"
+#include "../Scenes/CharacterSelectScene.hpp"
+#include "../Scenes/OptionScene.hpp"
+#include "../Scenes/CreditScene.hpp"
+#include "../Scenes/GameScene.hpp"
+#include "../Scenes/GameOverScene.hpp"
+#include "../Scenes/ResultScene.hpp"
 
 SceneManagers::SceneManagers()
 	: m_currentScene(nullptr)

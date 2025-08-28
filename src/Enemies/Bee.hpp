@@ -31,6 +31,10 @@ public:
 	Bee(const Vec2& startPosition);
 	~Bee() override = default;
 
+	//ファクトリーパターンのEnemyKey
+	String typeKey() const noexcept override { return U"Bee"; }
+	String currentVisualKey() const override;
+
 	// EnemyBaseの純粋仮想関数の実装
 	void init() override;
 	void update() override;

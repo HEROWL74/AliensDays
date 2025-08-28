@@ -1,4 +1,5 @@
 ﻿#include "Saw.hpp"
+#include "EnemyFactory.hpp"
 
 Saw::Saw(const Vec2& startPosition)
 	: EnemyBase(EnemyType::Saw, startPosition)
@@ -276,3 +277,35 @@ void Saw::drawRotationEffect() const
 		Circle(m_position, blurRadius).draw(ColorF(0.8, 0.8, 0.8, blurAlpha));
 	}
 }
+
+String Saw::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Walk:
+		if (m_isSpinning)
+		{
+			const bool useVariantA = std::fmod(m_animationTimer, SAW_ANIMATION_SPEED * 2) < SAW_ANIMATION_SPEED;
+			return useVariantA ? U"saw_a" : U"saw_b";
+		}
+		else
+		{
+			return U"saw_rest";
+		}
+		return U"saw_rest";
+	case EnemyState::Flattened:
+	case EnemyState::Hit:
+	case EnemyState::Dead:
+	case EnemyState::Idle:
+		return U"saw_rest";
+	default:
+		return U"saw_rest";
+	}
+}
+
+static EnemyAutoRegister _regSaw{
+	U"Saw",
+	[](const Vec2& pos) {
+		return std::make_unique<Saw>(pos);
+	}
+};

@@ -1,4 +1,5 @@
 ﻿#include "Fly.hpp"
+#include "EnemyFactory.hpp"
 
 Fly::Fly(const Vec2& startPosition)
 	: EnemyBase(EnemyType::Fly, startPosition)  // Use correct Fly type
@@ -386,3 +387,37 @@ void Fly::drawHitEffect() const
 		Circle(m_position, 20).draw(ColorF(0.7, 0.7, 0.7, alpha));
 	}
 }
+
+String Fly::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Idle:
+		return U"fly_rest";
+	case EnemyState::Walk:
+		if (m_isFlying)
+		{
+			const bool useVariantA = std::fmod(m_animationTimer, FLY_ANIMATION_SPEED * 2) < FLY_ANIMATION_SPEED;
+			return useVariantA ? U"fly_a" : U"fly_b";
+		}
+		else
+		{
+			return U"fly_rest";
+		}
+	case EnemyState::Flattened:
+		return U"fly_rest";
+	case EnemyState::Hit:
+		return U"fly_rest";
+	case EnemyState::Dead:
+		return U"fly_rest";
+	default:
+		return U"fly_rest";
+	}
+}
+
+static EnemyAutoRegister _regFly{
+	U"Fly",
+	[](const Vec2& pos) {
+		return std::make_unique<Fly>(pos);
+    }
+};

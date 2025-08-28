@@ -1,4 +1,5 @@
 ﻿#include "NormalSlime.hpp"
+#include "EnemyFactory.hpp"
 
 NormalSlime::NormalSlime(const Vec2& startPosition)
 	: EnemyBase(EnemyType::NormalSlime, startPosition)
@@ -345,3 +346,39 @@ void NormalSlime::drawHitEffect() const
 		Circle(m_position, 40).draw(ColorF(1.0, 0.0, 0.0, alpha));
 	}
 }
+
+String NormalSlime::currentVisualKey() const
+{
+	switch (m_state)
+	{
+	case EnemyState::Idle:
+		return U"slime_normal_rest";
+		break;
+	case EnemyState::Walk:
+	{
+		const bool useVariantA = std::fmod(m_animationTimer, WALK_ANIMATION_SPEED * 2) < WALK_ANIMATION_SPEED;
+		return useVariantA ? U"slime_normal_walk_a" : U"slime_normal_walk_b";
+	}
+	break;
+	case EnemyState::Flattened:
+		return U"slime_normal_flat";
+		break;
+	case EnemyState::Hit:
+		return U"slime_normal_rest"; 
+		break;
+	case EnemyState::Dead:
+		return  U"slime_normal_flat"; 
+		break;
+	default:
+		return U"slime_normal_rest";
+		break;
+	}
+}
+
+static EnemyAutoRegister _regNormalSlime{
+	U"NormalSlime",
+	[](const Vec2& pos) {
+		return std::make_unique<NormalSlime>(pos);
+	}
+};
+
