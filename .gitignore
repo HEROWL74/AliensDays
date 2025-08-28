@@ -367,5 +367,6 @@ App/AS_DEBUG/
 App/example/
 App/dll/
 App/engine/
-App/Alien'sDays.exe
+App/*.exe
+
 
