@@ -129,20 +129,6 @@ String EnemyBase::getStateString() const
 	}
 }
 
-String EnemyBase::getTypeString() const
-{
-	switch (m_type)
-	{
-	case EnemyType::Bee:        return U"Bee";
-	case EnemyType::NormalSlime: return U"NormalSlime";
-	case EnemyType::Saw:        return U"Saw";
-	case EnemyType::Ladybug:    return U"Ladybug";
-	case EnemyType::SlimeBlock: return U"SlimeBlock";
-	case EnemyType::SpikeSlime: return U"SpikeSlime";
-	case EnemyType::Fly:        return U"Fly";
-	default: return U"Unknown";
-	}
-}
 
 String EnemyBase::buildTextureKey(const String& action) const
 {

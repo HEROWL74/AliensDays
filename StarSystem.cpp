@@ -385,10 +385,10 @@ void StarSystem::generateStarsForStage(StageNumber stageNumber)
 void StarSystem::generateStarsForGrassStage()
 {
 	clearAllStars();
-	// 統一レイアウトの構造に合わせた配置
-	addStar(Vec2(384, 300));   // 星1: 左エリアの高いプラットフォーム上空
-	addStar(Vec2(1536, 200));  // 星2: 中央エリアの最高点上空  
-	addStar(Vec2(3840, 180));  // 星3: 右エリアの最高点上空
+
+	addStar(Vec2(1600, 180));  // 星1: 高いジャンプが必要な場所
+	addStar(Vec2(3008, 250));  // 星2: 狭い足場の上
+	addStar(Vec2(4416, 200));  // 星3: 最高点、最も取りづらい
 	
 }
 

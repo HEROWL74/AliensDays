@@ -7,6 +7,7 @@ enum class SceneType
 	Splash,        // スプラッシュシーンを追加
 	Title,
 	CharacterSelect, // キャラクターセレクトシーンを追加
+	Tutorial,
 	Option,        // オプションシーンを追加
 	Credit,        // クレジットシーンを追加
 	Game,

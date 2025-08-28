@@ -5,310 +5,347 @@
 
 void CollisionSystem::resolvePlayerCollisions(Player* player, Stage* stage, BlockSystem* blockSystem)
 {
-	if (!player) return;
+	if (!player || !stage) return;
 
-	// プレイヤーの物理情報を取得
-	Vec2 playerPos = player->getPosition();
+	const Vec2 playerPos = player->getPosition();
 	Vec2 playerVel = player->getVelocity();
-	Vec2 playerSize = Vec2(50.0, 80.0);  // さらにサイズを小さくして精度向上
-	bool wasGrounded = player->isGrounded();
 
-	MovingBody playerBody(playerPos, playerVel, playerSize, wasGrounded);
+	const double BLOCK_SIZE = 64.0;
+	const double PLAYER_SIZE = BLOCK_SIZE - 4.0; // プレイヤーを少し小さく（60x60）
+	const double halfSize = PLAYER_SIZE / 2.0;
 
-	// 全ての地形の衝突矩形を収集
-	Array<RectF> allTerrainRects;
+	// 次フレームの予測位置を計算
+	const double deltaTime = Scene::DeltaTime();
+	Vec2 nextPos = playerPos + playerVel * deltaTime;
 
-	// ステージの地形を追加
-	if (stage)
+	// すべてのコリジョンレクトを統合
+	Array<RectF> allCollisionRects = getUnifiedCollisionRects(stage, blockSystem);
+
+	bool isGrounded = false;
+	Vec2 finalPosition = nextPos;
+	Vec2 finalVelocity = playerVel;
+
+	// ★ 改良: X軸とY軸を分離して処理（より自然な移動）
+	Vec2 intermediatePos = playerPos;
+
+	// 1. X軸方向の移動を先に処理
+	if (Math::Abs(playerVel.x) > 0.1)
 	{
-		Array<RectF> stageRects = stage->getCollisionRects();
-		allTerrainRects.append(stageRects);
+		Vec2 xTargetPos = Vec2(nextPos.x, playerPos.y);
+		RectF xPlayerRect(xTargetPos.x - halfSize, xTargetPos.y - halfSize, PLAYER_SIZE, PLAYER_SIZE);
+
+		bool xCollision = false;
+		for (const auto& blockRect : allCollisionRects)
+		{
+			if (xPlayerRect.intersects(blockRect))
+			{
+				// ★ 改良: 壁際での自然な停止
+				if (playerVel.x > 0)
+				{
+					// 右移動中の衝突
+					double wallX = blockRect.x - halfSize - 0.5;
+					intermediatePos.x = wallX;
+				}
+				else
+				{
+					// 左移動中の衝突  
+					double wallX = blockRect.x + blockRect.w + halfSize + 0.5;
+					intermediatePos.x = wallX;
+				}
+
+				// ★ 重要: 壁に当たった時の速度処理を改良
+				finalVelocity.x = 0.0;
+				xCollision = true;
+				break;
+			}
+		}
+
+		if (!xCollision)
+		{
+			intermediatePos.x = xTargetPos.x;
+		}
+	}
+	else
+	{
+		intermediatePos.x = nextPos.x;
 	}
 
-	// ブロックシステムの矩形を追加
-	if (blockSystem)
+	// 2. Y軸方向の移動を処理
+	if (Math::Abs(playerVel.y) > 0.1)
 	{
-		Array<RectF> blockRects = blockSystem->getCollisionRects();
-		allTerrainRects.append(blockRects);
+		Vec2 yTargetPos = Vec2(intermediatePos.x, nextPos.y);
+		RectF yPlayerRect(yTargetPos.x - halfSize, yTargetPos.y - halfSize, PLAYER_SIZE, PLAYER_SIZE);
+
+		bool yCollision = false;
+		for (const auto& blockRect : allCollisionRects)
+		{
+			if (yPlayerRect.intersects(blockRect))
+			{
+				// Y軸衝突の処理
+				if (playerVel.y > 0)
+				{
+					// 下移動中の衝突（着地）
+					intermediatePos.y = blockRect.y - halfSize - 0.5;
+					isGrounded = true;
+				}
+				else
+				{
+					// 上移動中の衝突（天井）
+					intermediatePos.y = blockRect.y + blockRect.h + halfSize + 0.5;
+				}
+				finalVelocity.y = 0.0;
+				yCollision = true;
+				break;
+			}
+		}
+
+		if (!yCollision)
+		{
+			intermediatePos.y = yTargetPos.y;
+		}
+	}
+	else
+	{
+		intermediatePos.y = nextPos.y;
 	}
 
-	// 衝突判定を実行
-	Array<CollisionInfo> collisions = checkCollisionsWithTerrain(playerBody, allTerrainRects);
+	finalPosition = intermediatePos;
 
-	// 衝突を解決
-	if (!collisions.empty())
+	// 改良された接地判定
+	if (!isGrounded)
 	{
-		resolveMultipleCollisions(playerBody, collisions);
+		isGrounded = checkPreciseGroundContact(finalPosition, allCollisionRects);
 	}
 
-	// 地面判定
-	bool isCurrentlyGrounded = isGrounded(playerBody, allTerrainRects);
+	// ★ 追加: 壁際でのスタック防止
+	// 連続して同じ位置にいる場合は少し押し出す
+	static Vec2 previousPos = finalPosition;
+	static int stuckCounter = 0;
+
+	if (finalPosition.distanceFrom(previousPos) < 0.5)
+	{
+		stuckCounter++;
+		if (stuckCounter > 5) // 5フレーム連続で同じ位置
+		{
+			// わずかに押し出す
+			if (Math::Abs(playerVel.x) > Math::Abs(playerVel.y))
+			{
+				finalPosition.x += (playerVel.x > 0) ? -1.0 : 1.0;
+			}
+			stuckCounter = 0;
+		}
+	}
+	else
+	{
+		stuckCounter = 0;
+	}
+	previousPos = finalPosition;
 
 	// プレイヤーの状態を更新
-	player->setPosition(playerBody.position);
-	player->setVelocity(playerBody.velocity);
-	player->setGrounded(isCurrentlyGrounded);
+	player->setPosition(finalPosition);
+	player->setVelocity(finalVelocity);
+	player->setGrounded(isGrounded);
+
+#ifdef _DEBUG
+	debugCollisionInfo(finalPosition, finalVelocity, isGrounded, allCollisionRects.size());
+#endif
 }
 
-Array<CollisionInfo> CollisionSystem::checkCollisionsWithTerrain(const MovingBody& body, const Array<RectF>& terrainRects) const
+CollisionSystem::CollisionResult CollisionSystem::resolveBlockCollision(
+	const Vec2& currentPos, const Vec2& nextPos, const Vec2& velocity, const RectF& blockRect)
 {
-	Array<CollisionInfo> collisions;
-	const double deltaTime = Scene::DeltaTime();
+	CollisionResult result;
+	result.hasCollision = false;
+	result.correctedPosition = nextPos;
+	result.correctedVelocity = velocity;
 
-	// 現在位置での矩形
-	RectF currentRect = body.getBounds();
+	const double BLOCK_SIZE = 64.0;
+	const double PLAYER_SIZE = BLOCK_SIZE - 4.0; // 60x60
+	const double halfSize = PLAYER_SIZE / 2.0;
 
-	// 次フレーム位置での矩形
-	Vec2 nextPosition = body.position + body.velocity * deltaTime;
-	RectF nextRect(nextPosition.x - body.size.x / 2, nextPosition.y - body.size.y / 2, body.size.x, body.size.y);
+	// 現在位置と次位置での矩形
+	RectF currentRect(currentPos.x - halfSize, currentPos.y - halfSize, PLAYER_SIZE, PLAYER_SIZE);
+	RectF nextRect(nextPos.x - halfSize, nextPos.y - halfSize, PLAYER_SIZE, PLAYER_SIZE);
 
-	for (const auto& terrainRect : terrainRects)
+	// 衝突判定
+	if (!nextRect.intersects(blockRect))
 	{
-		// 次フレームで衝突する場合（現在は衝突していない場合も含む）
-		if (nextRect.intersects(terrainRect))
+		return result; // 衝突しない
+	}
+
+	result.hasCollision = true;
+
+	// 移動方向を判定
+	const Vec2 movement = nextPos - currentPos;
+
+	// ★ シンプルな方向判定
+	if (Math::Abs(movement.x) > Math::Abs(movement.y))
+	{
+		// 水平移動が主体
+		result.correctedVelocity.x = 0.0;
+		result.correctedVelocity.y = velocity.y;
+
+		if (movement.x > 0)
 		{
-			CollisionInfo collision = getCollisionInfo(nextRect, terrainRect);
-			if (collision.hasCollision)
-			{
-				// 現在衝突していない場合のみ移動方向を考慮
-				if (!currentRect.intersects(terrainRect))
-				{
-					collision = refineCollisionWithVelocity(collision, body.velocity, currentRect, terrainRect);
-				}
-				collisions.push_back(collision);
-			}
+			// 右移動
+			result.correctedPosition.x = blockRect.x - halfSize - COLLISION_EPSILON;
+			result.collisionType = CollisionType::RightWall;
+		}
+		else
+		{
+			// 左移動
+			result.correctedPosition.x = blockRect.x + blockRect.w + halfSize + COLLISION_EPSILON;
+			result.collisionType = CollisionType::LeftWall;
+		}
+	}
+	else
+	{
+		// 垂直移動が主体
+		result.correctedVelocity.x = velocity.x;
+		result.correctedVelocity.y = 0.0;
+
+		if (movement.y > 0)
+		{
+			// 下移動
+			result.correctedPosition.y = blockRect.y - halfSize - COLLISION_EPSILON;
+			result.collisionType = CollisionType::Ground;
+		}
+		else
+		{
+			// 上移動
+			result.correctedPosition.y = blockRect.y + blockRect.h + halfSize + COLLISION_EPSILON;
+			result.collisionType = CollisionType::Ceiling;
 		}
 	}
 
-	return collisions;
+	return result;
 }
 
-CollisionInfo CollisionSystem::getCollisionInfo(const RectF& moving, const RectF& stationary) const
+Array<RectF> CollisionSystem::getUnifiedCollisionRects(Stage* stage, BlockSystem* blockSystem) const
 {
-	if (!moving.intersects(stationary))
+	Array<RectF> allRects;
+
+	// ステージの衝突矩形を追加
+	if (stage)
 	{
-		return CollisionInfo();
+		const Array<RectF> stageRects = stage->getCollisionRects();
+		allRects.append(stageRects);
 	}
 
-	// 重複量を計算
-	double overlapLeft = (moving.x + moving.w) - stationary.x;
-	double overlapRight = (stationary.x + stationary.w) - moving.x;
-	double overlapTop = (moving.y + moving.h) - stationary.y;
-	double overlapBottom = (stationary.y + stationary.h) - moving.y;
-
-	// 最小の重複を見つけて衝突タイプを決定
-	double minOverlap = Math::Min(Math::Min(overlapLeft, overlapRight), Math::Min(overlapTop, overlapBottom));
-
-	CollisionType type = CollisionType::None;
-	Vec2 normal(0, 0);
-	double penetration = 0.0;
-
-	// より厳密な衝突判定：重複の最小値で判定し、さらに移動方向も考慮
-	if (Math::Abs(minOverlap - overlapTop) < COLLISION_EPSILON && overlapTop > 0)
+	// BlockSystemの衝突矩形を追加
+	if (blockSystem)
 	{
-		// 上からの衝突（地面）
-		type = CollisionType::Ground;
-		normal = Vec2(0, -1);
-		penetration = overlapTop;
-	}
-	else if (Math::Abs(minOverlap - overlapBottom) < COLLISION_EPSILON && overlapBottom > 0)
-	{
-		// 下からの衝突（天井）
-		type = CollisionType::Ceiling;
-		normal = Vec2(0, 1);
-		penetration = overlapBottom;
-	}
-	else if (Math::Abs(minOverlap - overlapLeft) < COLLISION_EPSILON && overlapLeft > 0)
-	{
-		// 左からの衝突（右の壁）
-		type = CollisionType::RightWall;
-		normal = Vec2(-1, 0);
-		penetration = overlapLeft;
-	}
-	else if (Math::Abs(minOverlap - overlapRight) < COLLISION_EPSILON && overlapRight > 0)
-	{
-		// 右からの衝突（左の壁）
-		type = CollisionType::LeftWall;
-		normal = Vec2(1, 0);
-		penetration = overlapRight;
+		const Array<RectF> blockRects = blockSystem->getCollisionRects();
+		allRects.append(blockRects);
 	}
 
-	Vec2 contactPoint = calculateContactPoint(moving, stationary);
-
-	return CollisionInfo(type, contactPoint, normal, penetration);
+	return allRects;
 }
 
-void CollisionSystem::resolveMultipleCollisions(MovingBody& body, const Array<CollisionInfo>& collisions) const
+bool CollisionSystem::checkPreciseGroundContact(const Vec2& playerPos, const Array<RectF>& terrainRects) const
 {
-	// 衝突の優先順位: 地面 > 天井 > 壁
-	Array<CollisionInfo> groundCollisions;
-	Array<CollisionInfo> ceilingCollisions;
-	Array<CollisionInfo> wallCollisions;
+	const double PLAYER_SIZE = 64.0 - 4.0; // 60x60
+	const double halfSize = PLAYER_SIZE / 2.0;
+	const double GROUND_CHECK_HEIGHT = 2.0;
 
-	for (const auto& collision : collisions)
-	{
-		switch (collision.type)
-		{
-		case CollisionType::Ground:
-			groundCollisions.push_back(collision);
-			break;
-		case CollisionType::Ceiling:
-			ceilingCollisions.push_back(collision);
-			break;
-		case CollisionType::LeftWall:
-		case CollisionType::RightWall:
-			wallCollisions.push_back(collision);
-			break;
-		default:
-			break;
-		}
-	}
-
-	// 地面衝突を最優先で処理
-	if (!groundCollisions.empty())
-	{
-		// 最も浅い地面衝突を選択
-		CollisionInfo bestGroundCollision = groundCollisions[0];
-		for (const auto& collision : groundCollisions)
-		{
-			if (collision.penetration < bestGroundCollision.penetration)
-			{
-				bestGroundCollision = collision;
-			}
-		}
-		resolveCollision(body, bestGroundCollision);
-	}
-
-	// 天井衝突を処理
-	if (!ceilingCollisions.empty())
-	{
-		CollisionInfo bestCeilingCollision = ceilingCollisions[0];
-		for (const auto& collision : ceilingCollisions)
-		{
-			if (collision.penetration < bestCeilingCollision.penetration)
-			{
-				bestCeilingCollision = collision;
-			}
-		}
-		resolveCollision(body, bestCeilingCollision);
-	}
-
-	// 壁衝突を処理
-	if (!wallCollisions.empty())
-	{
-		CollisionInfo bestWallCollision = wallCollisions[0];
-		for (const auto& collision : wallCollisions)
-		{
-			if (collision.penetration < bestWallCollision.penetration)
-			{
-				bestWallCollision = collision;
-			}
-		}
-		resolveCollision(body, bestWallCollision);
-	}
-}
-
-void CollisionSystem::resolveCollision(MovingBody& body, const CollisionInfo& collision) const
-{
-	if (!collision.hasCollision) return;
-
-	const double minPenetration = 1.0; // 最小侵入量閾値を上げる
-
-	switch (collision.type)
-	{
-	case CollisionType::Ground:
-	{
-		// 地面に着地 - Y座標を確実に補正
-		if (collision.penetration > minPenetration)
-		{
-			body.position.y -= collision.penetration + SEPARATION_OFFSET;
-		}
-		if (body.velocity.y > 0)
-		{
-			body.velocity.y = 0;
-		}
-		body.isGrounded = true;
-	}
-	break;
-
-	case CollisionType::Ceiling:
-	{
-		// 天井に衝突 - Y座標を確実に補正
-		if (collision.penetration > minPenetration)
-		{
-			body.position.y += collision.penetration + SEPARATION_OFFSET;
-		}
-		if (body.velocity.y < 0)
-		{
-			body.velocity.y = 0;
-		}
-	}
-	break;
-
-	case CollisionType::LeftWall:
-	{
-		// 左の壁に衝突 - X座標を確実に補正
-		if (collision.penetration > minPenetration)
-		{
-			body.position.x -= collision.penetration + SEPARATION_OFFSET;
-		}
-		// 横移動を完全に停止
-		body.velocity.x = 0;
-	}
-	break;
-
-	case CollisionType::RightWall:
-	{
-		// 右の壁に衝突 - X座標を確実に補正
-		if (collision.penetration > minPenetration)
-		{
-			body.position.x += collision.penetration + SEPARATION_OFFSET;
-		}
-		// 横移動を完全に停止
-		body.velocity.x = 0;
-	}
-	break;
-
-	default:
-		break;
-	}
-}
-
-bool CollisionSystem::isGrounded(const MovingBody& body, const Array<RectF>& terrainRects) const
-{
-	// プレイヤーの足元より少し下の矩形で地面をチェック
+	// プレイヤーの足元の矩形（中央部分のみ）
+	const double footMargin = 4.0;
 	RectF groundCheckRect(
-		body.position.x - body.size.x / 4,  // 幅を狭める
-		body.position.y + body.size.y / 2,  // 足元から
-		body.size.x / 2,                    // 半分の幅
-		GROUND_TOLERANCE                    // 許容範囲
+		playerPos.x - halfSize + footMargin,
+		playerPos.y + halfSize,
+		PLAYER_SIZE - footMargin * 2,
+		GROUND_CHECK_HEIGHT
 	);
 
 	for (const auto& terrainRect : terrainRects)
 	{
 		if (groundCheckRect.intersects(terrainRect))
 		{
-			return true;
+			// プレイヤーの足がブロックの上面に接触しているか確認
+			double playerBottom = playerPos.y + halfSize;
+			double blockTop = terrainRect.y;
+
+			if (Math::Abs(playerBottom - blockTop) <= GROUND_CHECK_HEIGHT)
+			{
+				// 水平方向の重複も確認
+				double playerLeft = playerPos.x - halfSize + footMargin;
+				double playerRight = playerPos.x + halfSize - footMargin;
+				double blockLeft = terrainRect.x;
+				double blockRight = terrainRect.x + terrainRect.w;
+
+				// 最小限の重複があれば接地
+				if (playerRight > blockLeft + 2.0 && playerLeft < blockRight - 2.0)
+				{
+					return true;
+				}
+			}
 		}
 	}
-
 	return false;
+}
+
+bool CollisionSystem::canPlayerFitInGap(const Vec2& position, const Array<RectF>& terrainRects) const
+{
+	const double BLOCK_SIZE = 64.0;
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	// ★ 修正: プレイヤーサイズを少し小さくして隙間通過を容易に
+	const double PLAYER_COLLISION_SIZE = BLOCK_SIZE - 2.0; // 2ピクセル小さく
+	const double smallHalfSize = PLAYER_COLLISION_SIZE / 2.0;
+
+	// プレイヤーサイズの矩形を作成（少し小さめ）
+	RectF playerRect(
+		position.x - smallHalfSize,
+		position.y - smallHalfSize,
+		PLAYER_COLLISION_SIZE,
+		PLAYER_COLLISION_SIZE
+	);
+
+	// どのブロックとも衝突しなければ通れる
+	for (const auto& terrainRect : terrainRects)
+	{
+		if (playerRect.intersects(terrainRect))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+RectF CollisionSystem::getPlayerRect(const Vec2& position, const Vec2& size) const
+{
+	// 新システムでは size パラメータは無視し、常にブロックサイズを使用
+	const double BLOCK_SIZE = 64.0;
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	return RectF(position.x - halfSize, position.y - halfSize, BLOCK_SIZE, BLOCK_SIZE);
 }
 
 Vec2 CollisionSystem::findNearestGroundPosition(const Vec2& position, const Array<RectF>& terrainRects) const
 {
-	double nearestGroundY = position.y + 1000.0;  // デフォルトは下の方
+	const double BLOCK_SIZE = 64.0;
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	double nearestGroundY = position.y + 1000.0;
 	bool foundGround = false;
+
+	// プレイヤーの水平位置（1ブロック幅）でチェック
+	double playerLeft = position.x - halfSize;
+	double playerRight = position.x + halfSize;
 
 	for (const auto& terrainRect : terrainRects)
 	{
-		// X座標が重なる地形ブロックを探す
-		if (position.x >= terrainRect.x && position.x <= terrainRect.x + terrainRect.w)
+		// ブロックとプレイヤーの水平方向の重複をチェック
+		double blockLeft = terrainRect.x;
+		double blockRight = terrainRect.x + terrainRect.w;
+
+		// 重複判定（1ブロック基準）
+		if (playerRight > blockLeft && playerLeft < blockRight)
 		{
-			// 現在位置より下にある地形の上面を探す
+			// プレイヤーより下にあるブロック
 			if (terrainRect.y > position.y && terrainRect.y < nearestGroundY)
 			{
-				nearestGroundY = terrainRect.y;
+				nearestGroundY = terrainRect.y - halfSize;
 				foundGround = true;
 			}
 		}
@@ -320,106 +357,70 @@ Vec2 CollisionSystem::findNearestGroundPosition(const Vec2& position, const Arra
 	}
 	else
 	{
-		// 地面が見つからない場合はデフォルト位置
-		return Vec2(position.x, 850.0);  // ステージの地面レベル
+		// デフォルト地面レベル（Stage の基本地面）
+		return Vec2(position.x, 832.0 - halfSize);
 	}
 }
 
-double CollisionSystem::calculatePenetration(const RectF& rectA, const RectF& rectB, CollisionType type) const
+bool CollisionSystem::checkImprovedGroundContact(const Vec2& playerPos, const Vec2& playerSize,
+											   const Array<RectF>& terrainRects) const
 {
-	switch (type)
-	{
-	case CollisionType::Ground:
-	case CollisionType::Ceiling:
-		return Math::Min(rectA.y + rectA.h - rectB.y, rectB.y + rectB.h - rectA.y);
-
-	case CollisionType::LeftWall:
-	case CollisionType::RightWall:
-		return Math::Min(rectA.x + rectA.w - rectB.x, rectB.x + rectB.w - rectA.x);
-
-	default:
-		return 0.0;
-	}
+	// 新システムでは playerSize パラメータを無視
+	return checkPreciseGroundContact(playerPos, terrainRects);
 }
 
-Vec2 CollisionSystem::calculateContactPoint(const RectF& rectA, const RectF& rectB) const
+bool CollisionSystem::checkGroundContact(const Vec2& playerPos, const Vec2& playerSize,
+									   const Array<RectF>& terrainRects) const
 {
-	// 二つの矩形の重なり部分の中心を接触点とする
-	double left = Math::Max(rectA.x, rectB.x);
-	double right = Math::Min(rectA.x + rectA.w, rectB.x + rectB.w);
-	double top = Math::Max(rectA.y, rectB.y);
-	double bottom = Math::Min(rectA.y + rectA.h, rectB.y + rectB.h);
-
-	return Vec2((left + right) / 2.0, (top + bottom) / 2.0);
+	// 新システムでは playerSize パラメータを無視
+	return checkPreciseGroundContact(playerPos, terrainRects);
 }
 
-Vec2 CollisionSystem::calculateCollisionNormal(CollisionType type) const
+void CollisionSystem::checkSlidingBlockCollision(Player* player, const Vec2& playerPos, const Vec2& playerSize,
+												const Array<RectF>& blockRects, BlockSystem* blockSystem) const
 {
-	switch (type)
+	if (!player || !blockSystem) return;
+
+	const double BLOCK_SIZE = 64.0;
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	// スライディング時のプレイヤー矩形（高さを半分に）
+	RectF slidingRect(
+		playerPos.x - halfSize,
+		playerPos.y,  // 上半分のみ
+		BLOCK_SIZE,
+		halfSize
+	);
+
+	for (const auto& blockRect : blockRects)
 	{
-	case CollisionType::Ground:   return Vec2(0, -1);
-	case CollisionType::Ceiling:  return Vec2(0, 1);
-	case CollisionType::LeftWall: return Vec2(1, 0);
-	case CollisionType::RightWall:return Vec2(-1, 0);
-	default:                      return Vec2(0, 0);
-	}
-}
-
-CollisionInfo CollisionSystem::refineCollisionWithVelocity(const CollisionInfo& collision, const Vec2& velocity, const RectF& currentRect, const RectF& terrainRect) const
-{
-	// より正確な移動方向に基づく衝突判定
-	CollisionInfo refinedCollision = collision;
-
-	// 移動速度がほぼゼロの場合は元の判定をそのまま使用
-	if (velocity.length() < 10.0)
-	{
-		return collision;
-	}
-
-	// 現在の位置と地形の位置関係を厳密にチェック
-	const Vec2 currentCenter = Vec2(currentRect.x + currentRect.w / 2, currentRect.y + currentRect.h / 2);
-	const Vec2 terrainCenter = Vec2(terrainRect.x + terrainRect.w / 2, terrainRect.y + terrainRect.h / 2);
-	const Vec2 relativePos = currentCenter - terrainCenter;
-
-	// 位置関係と移動方向の両方を考慮
-	const double velocityThreshold = 20.0;
-
-	if (Math::Abs(velocity.x) > Math::Abs(velocity.y) + 50.0)
-	{
-		// 水平移動が支配的
-		if (velocity.x > velocityThreshold && relativePos.x < 0)
+		if (slidingRect.intersects(blockRect))
 		{
-			// 右向きに移動中で、現在地形の左側にいる → 右の壁に衝突
-			refinedCollision.type = CollisionType::RightWall;
-			refinedCollision.normal = Vec2(-1, 0);
-			refinedCollision.penetration = (currentRect.x + currentRect.w) - terrainRect.x;
-		}
-		else if (velocity.x < -velocityThreshold && relativePos.x > 0)
-		{
-			// 左向きに移動中で、現在地形の右側にいる → 左の壁に衝突
-			refinedCollision.type = CollisionType::LeftWall;
-			refinedCollision.normal = Vec2(1, 0);
-			refinedCollision.penetration = (terrainRect.x + terrainRect.w) - currentRect.x;
+			// ブロックとの相互作用を処理
+			blockSystem->handlePlayerInteraction(player);
+			break;
 		}
 	}
-	else if (Math::Abs(velocity.y) > Math::Abs(velocity.x) + 50.0)
-	{
-		// 垂直移動が支配的
-		if (velocity.y > velocityThreshold && relativePos.y < 0)
-		{
-			// 下向きに移動中で、現在地形の上側にいる → 地面に衝突
-			refinedCollision.type = CollisionType::Ground;
-			refinedCollision.normal = Vec2(0, -1);
-			refinedCollision.penetration = (currentRect.y + currentRect.h) - terrainRect.y;
-		}
-		else if (velocity.y < -velocityThreshold && relativePos.y > 0)
-		{
-			// 上向きに移動中で、現在地形の下側にいる → 天井に衝突
-			refinedCollision.type = CollisionType::Ceiling;
-			refinedCollision.normal = Vec2(0, 1);
-			refinedCollision.penetration = (terrainRect.y + terrainRect.h) - currentRect.y;
-		}
-	}
-
-	return refinedCollision;
 }
+
+#ifdef _DEBUG
+void CollisionSystem::debugCollisionInfo(const Vec2& position, const Vec2& velocity,
+										bool grounded, size_t blockCount) const
+{
+	static int debugCounter = 0;
+	if (debugCounter++ % 120 == 0) // 2秒ごと
+	{
+		Print << U"=== Collision Debug (64x64 Block System) ===";
+		Print << U"Position: ({:.1f}, {:.1f})"_fmt(position.x, position.y);
+		Print << U"Velocity: ({:.1f}, {:.1f})"_fmt(velocity.x, velocity.y);
+		Print << U"Grounded: " << (grounded ? U"YES" : U"NO");
+		Print << U"Block count: " << blockCount;
+
+		// グリッド位置表示
+		const double BLOCK_SIZE = 64.0;
+		int gridX = static_cast<int>(position.x / BLOCK_SIZE);
+		int gridY = static_cast<int>(position.y / BLOCK_SIZE);
+		Print << U"Grid Position: ({}, {})"_fmt(gridX, gridY);
+	}
+}
+#endif

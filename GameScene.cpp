@@ -33,10 +33,10 @@ void GameScene::init()
 	// フォントの初期化
 	m_gameFont = Font(24);
 
-	//ゲームBGMを開始
+	// ゲームBGMを開始
 	SoundManager::GetInstance().playBGM(SoundManager::SoundType::BGM_GAME);
 
-	// ★ 重要：シーン遷移フラグを必ずリセット
+	// 重要：シーン遷移フラグを必ずリセット
 	m_nextScene = none;
 
 	// リザルトシーンからの復帰処理
@@ -49,7 +49,6 @@ void GameScene::init()
 	}
 	else if (s_shouldRetryStage)
 	{
-		// リトライ時は必ずゲームオーバーステージを使用
 		targetStage = s_gameOverStage;
 		s_shouldRetryStage = false;
 	}
@@ -57,16 +56,21 @@ void GameScene::init()
 	// ステージの読み込み
 	loadStage(targetStage);
 
-	// ★ 重要：Playerオブジェクトを完全に破棄して再作成
+	// プレイヤーオブジェクトを完全に破棄して再作成
 	if (m_player)
 	{
-		m_player.reset();  // 既存のPlayerを完全に削除
+		m_player.reset();
 	}
 	m_player = nullptr;
 
 	// 選択されたプレイヤーカラーを取得してPlayerオブジェクトを新規作成
 	const PlayerColor selectedColor = CharacterSelectScene::getSelectedPlayerColor();
-	const Vec2 startPosition = Vec2(200.0, 300.0);
+	// ★ プレイヤーの初期位置を1ブロック基準で設定
+	const double BLOCK_SIZE = 64.0;
+
+	// ★ プレイヤーの初期位置を地面の上に設定（安全な位置）
+	// 地面のY座標は 13 * 64 = 832、プレイヤーの中心を地面から32px上に配置
+	const Vec2 startPosition = Vec2(3.0 * BLOCK_SIZE, 12.5 * BLOCK_SIZE); // 地面の上に立つ位置
 
 	m_player = std::make_unique<Player>(selectedColor, startPosition);
 
@@ -94,7 +98,7 @@ void GameScene::init()
 	m_starSystem->init();
 	m_starSystem->generateStarsForStage(m_currentStageNumber);
 
-	// 【追加】BlockSystemの初期化
+	// BlockSystemの初期化
 	m_blockSystem = std::make_unique<BlockSystem>();
 	if (m_blockSystem) {
 		m_blockSystem->init();
@@ -104,7 +108,14 @@ void GameScene::init()
 	// 敵の初期化
 	initEnemies();
 
-	// ★ 重要：ゲーム状態の完全初期化
+	m_shaderEffects = std::make_unique<ShaderEffects>();
+	m_shaderEffects->init();
+
+	// 昼夜システムの初期化
+	m_dayNightSystem = std::make_unique<DayNightSystem>();
+	m_dayNightSystem->init();
+
+	// ゲーム状態の完全初期化
 	m_gameTime = 0.0;
 	m_nextScene = none;
 	m_goalReached = false;
@@ -153,6 +164,15 @@ void GameScene::update()
 		return;
 	}
 
+	if (m_shaderEffects)
+	{
+		m_shaderEffects->update(Scene::DeltaTime());
+	}
+
+	if (m_dayNightSystem)
+	{
+		m_dayNightSystem->update();
+	}
 	// ゴール判定（プレイヤー更新前にチェック）
 	updateGoalCheck();
 
@@ -197,6 +217,21 @@ void GameScene::update()
 	{
 		m_stage->update(m_player->getPosition());
 	}
+
+	//プレイヤーがダメージを受けたときの色収差
+	if (m_player && m_player->getCurrentState() == PlayerState::Hit)
+	{
+		if (m_shaderEffects)
+		{
+			m_shaderEffects->enableChromatic(true);
+			m_shaderEffects->setChromaticIntensity(0.8f);
+		}
+	}
+	else if (m_shaderEffects)
+	{
+		m_shaderEffects->enableChromatic(false);
+	}
+
 
 #ifdef _DEBUG
 	// デバッグ用ステージ切り替え
@@ -253,19 +288,26 @@ void GameScene::updateCollectionSystems()
 {
 	if (!m_player) return;
 
-	// HUDのコイン位置を計算（固定UI位置）
 	const Vec2 hudCoinPosition = Vec2(30 + 80 + 20 + 48 / 2, 30 + 64 + 20 + 48 / 2);
 
-	// コインシステムの更新
 	if (m_coinSystem)
 	{
 		m_coinSystem->update(m_player.get(), hudCoinPosition);
 	}
 
-	// 星システムの更新
 	if (m_starSystem)
 	{
+		// スター収集前の数を記録
+		int previousStars = m_starSystem->getCollectedStarsCount();
+
 		m_starSystem->update(m_player.get());
+
+		// スターが収集されたら昼夜システムに通知
+		int currentStars = m_starSystem->getCollectedStarsCount();
+		if (currentStars > previousStars && m_dayNightSystem)
+		{
+			m_dayNightSystem->onStarCollected();
+		}
 	}
 }
 
@@ -297,6 +339,12 @@ void GameScene::handleGoalReached()
 	// ★ 修正: クリア音を再生
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_COIN);
 
+	// ゴール時にグローエフェクト
+	if (m_shaderEffects)
+	{
+		m_shaderEffects->enableGlow(true);
+	}
+
 	// リザルトデータを設定
 	s_resultPlayerColor = CharacterSelectScene::getSelectedPlayerColor();
 	s_resultStars = m_starSystem ? m_starSystem->getCollectedStarsCount() : 0;
@@ -323,107 +371,131 @@ void GameScene::handleGoalReached()
 
 void GameScene::draw() const
 {
-	// ステージの描画
-	if (m_stage)
+	if (m_shaderEffects)
 	{
-		m_stage->draw();
-	}
-	else
-	{
-		Scene::Rect().draw(ColorF(0.2, 0.4, 0.6));
-	}
+		// RenderTextureへの描画開始
+		m_shaderEffects->beginCapture();
 
-	// 収集アイテムの描画（ステージの後、プレイヤーの前）
-	if (m_stage)
-	{
-		const Vec2 cameraOffset = m_stage->getCameraOffset();
-
-		if (m_coinSystem)
 		{
-			m_coinSystem->draw(cameraOffset);
-		}
+			// ScopedRenderTarget2Dを使用してRenderTextureに描画
+			const ScopedRenderTarget2D target(m_shaderEffects->getRenderTarget());
 
-		if (m_starSystem)
-		{
-			m_starSystem->draw(cameraOffset);
-		}
-
-		// 【追加】BlockSystemの描画（ステージの後、プレイヤーの前）
-		if (m_blockSystem)
-		{
-			m_blockSystem->draw(cameraOffset);
-		}
-	}
-
-	// 敵の描画
-	drawEnemies();
-
-	drawFireballDestructionEffects();
-
-	if (m_player && m_stage)
-	{
-		drawPlayerFireballs();
-	}
-
-	// プレイヤーの描画（スクロールに対応）
-	if (m_player && m_stage)
-	{
-		const Vec2 playerWorldPos = m_player->getPosition();
-		const Vec2 playerScreenPos = m_stage->worldToScreenPosition(playerWorldPos);
-
-		// 爆散中の場合
-		if (m_player->isExploding())
-		{
-			// Player::draw() が爆散エフェクトを描画する
-			// 画面座標に調整するため、一時的にプレイヤーの位置を変更
-			const Vec2 originalPos = m_player->getPosition();
-			const_cast<Player*>(m_player.get())->setPosition(playerScreenPos);
-			m_player->draw();
-			const_cast<Player*>(m_player.get())->setPosition(originalPos);
-		}
-		// 死亡状態の場合は何も描画しない
-		else if (!m_player->isDead())
-		{
-			// 通常のプレイヤー描画
-			if (m_player->getCurrentTexture())
+			// === 既存の描画コードはそのまま ===
+			if (m_stage)
 			{
-				const double scale = m_player->getScale();
-				const double rotation = m_player->getRotation();
-				const ColorF tint = m_player->getTint();
-				const Texture currentTexture = m_player->getCurrentTexture();
-
-				if (m_player->getDirection() == PlayerDirection::Left)
-				{
-					currentTexture.scaled(scale).mirrored().rotated(rotation).drawAt(playerScreenPos, tint);
-				}
-				else
-				{
-					currentTexture.scaled(scale).rotated(rotation).drawAt(playerScreenPos, tint);
-				}
+				m_stage->draw();
 			}
 			else
 			{
-				const ColorF fallbackColor = m_player->getTint();
-				Circle(playerScreenPos, 25).draw(fallbackColor);
+				Scene::Rect().draw(ColorF(0.2, 0.4, 0.6));
+			}
+
+			if (m_stage)
+			{
+				const Vec2 cameraOffset = m_stage->getCameraOffset();
+
+				if (m_coinSystem)
+				{
+					m_coinSystem->draw(cameraOffset);
+				}
+
+				if (m_starSystem)
+				{
+					m_starSystem->draw(cameraOffset);
+				}
+
+				if (m_blockSystem)
+				{
+					m_blockSystem->draw(cameraOffset);
+				}
+			}
+
+			drawEnemies();
+			drawFireballDestructionEffects();
+
+			if (m_player && m_stage)
+			{
+				drawPlayerFireballs();
+			}
+
+			// プレイヤーの描画
+			if (m_player && m_stage)
+			{
+				const Vec2 playerWorldPos = m_player->getPosition();
+				const Vec2 playerScreenPos = m_stage->worldToScreenPosition(playerWorldPos);
+
+				if (m_player->isExploding())
+				{
+					const Vec2 originalPos = m_player->getPosition();
+					const_cast<Player*>(m_player.get())->setPosition(playerScreenPos);
+					m_player->draw();
+					const_cast<Player*>(m_player.get())->setPosition(originalPos);
+				}
+				else if (!m_player->isDead())
+				{
+					if (m_player->getCurrentTexture())
+					{
+						const double scale = m_player->getScale();
+						const double rotation = m_player->getRotation();
+						const ColorF tint = m_player->getTint();
+						const Texture currentTexture = m_player->getCurrentTexture();
+
+						if (m_player->getDirection() == PlayerDirection::Left)
+						{
+							currentTexture.scaled(scale).mirrored().rotated(rotation).drawAt(playerScreenPos, tint);
+						}
+						else
+						{
+							currentTexture.scaled(scale).rotated(rotation).drawAt(playerScreenPos, tint);
+						}
+					}
+					else
+					{
+						const ColorF fallbackColor = m_player->getTint();
+						Circle(playerScreenPos, 25).draw(fallbackColor);
+					}
+				}
+			}
+
+			if (m_hudSystem)
+			{
+				m_hudSystem->draw();
+			}
+
+			// ★ 新規追加: 昼夜システムのUI描画
+			drawDayNightUI();
+
+			// UI要素の描画
+			const String timeText = U"Time: {:.1f}s"_fmt(m_gameTime);
+			m_gameFont(timeText).draw(10, 10, ColorF(1.0, 1.0, 1.0));
+
+			if (m_player && !m_player->isExploding())
+			{
+				const String controlText = U"WASD: Move, SPACE: Jump, S: Duck, F: Fireball, ESC: Title, R: Character Select";
+				m_gameFont(controlText).draw(10, Scene::Height() - 40, ColorF(0.8, 0.8, 0.8));
+			}
+			else if (m_player && m_player->isExploding())
+			{
+				const String explosionText = U"GAME OVER...";
+				const Vec2 messagePos = Vec2(Scene::Center().x, Scene::Height() - 100);
+				const double alpha = 0.7 + 0.3 * std::sin(Scene::Time() * 4.0);
+				Font(32, Typeface::Bold)(explosionText).drawAt(messagePos, ColorF(1.0, 0.3, 0.3, alpha));
 			}
 		}
-	}
 
-	// HUDシステムの描画（最前面）
-	if (m_hudSystem)
-	{
-		m_hudSystem->draw();
-	}
+		// シェーダーエフェクトを適用して画面に描画
+		m_shaderEffects->endCaptureAndDraw();
 
-	// UI要素の描画
-	const String timeText = U"Time: {:.1f}s"_fmt(m_gameTime);
-	m_gameFont(timeText).draw(10, 10, ColorF(1.0, 1.0, 1.0));
-
-	// 爆散中でない場合のみ操作説明を表示
-	if (m_player && !m_player->isExploding())
-	{
-		const String controlText = U"WASD: Move, SPACE: Jump, S: Duck, F: Fireball, ESC: Title, R: Character Select";
-		m_gameFont(controlText).draw(10, Scene::Height() - 40, ColorF(0.8, 0.8, 0.8));
+		if (m_dayNightSystem)
+		{
+			RenderTexture tempTexture(Scene::Size());
+			{
+				const ScopedRenderTarget2D target2(tempTexture);
+				Scene::Rect().draw(ColorF(0.0, 0.0, 0.0, 0.0));
+				m_shaderEffects->getRenderTarget().draw();
+			}
+			m_dayNightSystem->applyShader(tempTexture);
+		}
 	}
 	else if (m_player && m_player->isExploding())
 	{
@@ -433,6 +505,8 @@ void GameScene::draw() const
 		const double alpha = 0.7 + 0.3 * std::sin(Scene::Time() * 4.0);
 		Font(32, Typeface::Bold)(explosionText).drawAt(messagePos, ColorF(1.0, 0.3, 0.3, alpha));
 	}
+
+	// ★ 削除: 古い時間表示コード（drawDayNightUI()に統合）
 
 	// デバッグ情報（Debug時のみ表示）
 #ifdef _DEBUG
@@ -446,14 +520,12 @@ void GameScene::draw() const
 		);
 		m_gameFont(playerInfo).draw(10, 40, ColorF(1.0, 1.0, 0.8));
 
-		// 爆散タイマーの表示
 		if (m_player->isExploding())
 		{
 			const String explosionInfo = U"Explosion Timer: {:.2f}s"_fmt(m_player->getDeathTimer());
 			m_gameFont(explosionInfo).draw(10, 70, ColorF(1.0, 0.5, 0.5));
 		}
 
-		// その他のデバッグ情報...
 		const Vec2 playerWorldPos = m_player->getPosition();
 		const String positionInfo = U"Position: ({:.0f}, {:.0f})"_fmt(
 			playerWorldPos.x,
@@ -474,7 +546,7 @@ void GameScene::draw() const
 		const String enemyInfo = U"Enemies: {}"_fmt(m_enemies.size());
 		m_gameFont(enemyInfo).draw(10, 160, ColorF(0.8, 1.0, 0.8));
 
-		// 【追加】BlockSystemのデバッグ情報
+		// BlockSystemのデバッグ情報
 		if (m_blockSystem)
 		{
 			const String blockInfo = U"Blocks: {} total, {} active, {} coins earned"_fmt(
@@ -506,6 +578,19 @@ void GameScene::draw() const
 			);
 			m_gameFont(hudInfo).draw(10, 220, ColorF(1.0, 0.8, 0.8));
 		}
+
+		// 昼夜システムのデバッグ情報
+		if (m_dayNightSystem)
+		{
+			const String dayNightInfo = U"DayNight: Phase={} | Time={:.1f}/{:.1f} | UntilNight={:.1f}s | Stars={}"_fmt(
+				static_cast<int>(m_dayNightSystem->getCurrentPhase()),
+				m_dayNightSystem->getTimeOfDay(),
+				m_dayNightSystem->getTimeOfDay() / m_dayNightSystem->getNormalizedTime(),
+				m_dayNightSystem->getTimeUntilNight(),
+				m_dayNightSystem->getStarsCollected()
+			);
+			m_gameFont(dayNightInfo).draw(10, 280, ColorF(0.8, 1.0, 1.0));
+		}
 	}
 
 	if (m_stage)
@@ -514,7 +599,7 @@ void GameScene::draw() const
 			static_cast<int>(m_currentStageNumber),
 			m_stage->getStageName()
 		);
-		m_gameFont(stageInfo).draw(10, 280, ColorF(0.8, 1.0, 0.8));
+		m_gameFont(stageInfo).draw(10, 310, ColorF(0.8, 1.0, 0.8));
 	}
 #endif
 }
@@ -666,10 +751,12 @@ void GameScene::loadStage(StageNumber stageNumber)
 	// プレイヤーの位置をステージの安全な場所にリセット
 	if (m_player)
 	{
-		Vec2 safePosition = Vec2(300.0, 200.0);
+		const double BLOCK_SIZE = 64.0;
+		// 安全な位置: 3ブロック目、地面の上
+		Vec2 safePosition = Vec2(3.0 * BLOCK_SIZE, 12.5 * BLOCK_SIZE);
+
 		m_player->setPosition(safePosition);
 		m_player->setVelocity(Vec2::Zero());
-		// ★ ファイアボール数もリセット
 		m_player->resetFireballCount();
 	}
 
@@ -686,7 +773,7 @@ void GameScene::loadStage(StageNumber stageNumber)
 		m_starSystem->resetCollectedCount();
 	}
 
-	// 【追加】BlockSystemのステージ切り替え
+	// BlockSystemのステージ切り替え
 	if (m_blockSystem)
 	{
 		m_blockSystem->generateBlocksForStage(stageNumber);
@@ -704,228 +791,381 @@ void GameScene::initEnemies()
 {
 	m_enemies.clear();
 
-	// ステージに応じて多様な敵を配置（密度を大幅に増加）
+	const double BLOCK_SIZE = 64.0;
+	const double GROUND_LEVEL = 12.0 * BLOCK_SIZE;
+
+	//プレイヤーのスタート地点から十分離れた位置に敵を配置
+	// 1ブロック基準で配置座標を計算
+
 	switch (m_currentStageNumber)
 	{
 	case StageNumber::Stage1:
-		// Stage1: 基本的な敵（チュートリアル的だが適度な挑戦）
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<NormalSlime>(Vec2(400.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(600.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(800.0, 200.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(1000.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(1200.0, 300.0)));
+		// Stage1: 草原ステージ - 1ブロック基準での配置
 
-		// 中間エリア (1280-2560)
-		addEnemy(std::make_unique<Fly>(Vec2(1400.0, 180.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(1600.0, 300.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(1800.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(2000.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(2200.0, 220.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(2400.0, 300.0)));
+		// 序盤エリア (12-24ブロック目)
+		addEnemy(std::make_unique<NormalSlime>(Vec2(12 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(16 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Fly>(Vec2(19 * BLOCK_SIZE, 8 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(22 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
 
-		// 後半エリア (2560-3840)
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2600.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(2800.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3000.0, 200.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(3200.0, 300.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(3400.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(3600.0, 300.0)));
+		// 中間エリア (25-44ブロック目)
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(25 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(28 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(31 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(34 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(37 * BLOCK_SIZE, 7 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<NormalSlime>(Vec2(40 * BLOCK_SIZE, GROUND_LEVEL)));
 
-		// 終盤エリア (3840-5120)
-		addEnemy(std::make_unique<Fly>(Vec2(3800.0, 180.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(4000.0, 300.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4200.0, 300.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(4400.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(4600.0, 200.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(4800.0, 300.0)));
+		// 後半エリア (45-62ブロック目)
+		addEnemy(std::make_unique<Fly>(Vec2(44 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(47 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(50 * BLOCK_SIZE, 6 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(53 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(56 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(59 * BLOCK_SIZE, 9 * BLOCK_SIZE))); // プラットフォーム上
+
+		// 終盤エリア (63-75ブロック目)
+		addEnemy(std::make_unique<Fly>(Vec2(62 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(66 * BLOCK_SIZE, 4 * BLOCK_SIZE))); // 高いプラットフォーム上
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(69 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(72 * BLOCK_SIZE, 6 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(73 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
 		break;
 
 	case StageNumber::Stage2:
-		// Stage2: 砂漠ステージ - 中程度の難易度、敵密度アップ
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<NormalSlime>(Vec2(300.0, 300.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(500.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(700.0, 250.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(900.0, 180.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(1100.0, 300.0)));
+		// Stage2: 砂漠ステージ - 1ブロック基準での配置
 
-		// 中間エリア (1280-2560)
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1300.0, 300.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(1500.0, 200.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(1700.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(1900.0, 250.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(2100.0, 180.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2300.0, 300.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2500.0, 300.0)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(14 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(17 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Ladybug>(Vec2(20 * BLOCK_SIZE, 11 * BLOCK_SIZE))); // 低いプラットフォーム
+		addEnemy(std::make_unique<Fly>(Vec2(23 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
 
-		// 後半エリア (2560-3840)
-		addEnemy(std::make_unique<Bee>(Vec2(2700.0, 200.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(2900.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(3100.0, 250.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3300.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3500.0, 180.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(3700.0, 300.0)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(27 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(30 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(33 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(36 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Ladybug>(Vec2(39 * BLOCK_SIZE, 7 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(42 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
 
-		// 終盤エリア (3840-5120)
-		addEnemy(std::make_unique<Bee>(Vec2(3900.0, 200.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4100.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(4300.0, 250.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(4500.0, 180.0)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(4700.0, 300.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 300.0)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(45 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Bee>(Vec2(48 * BLOCK_SIZE, 5 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(51 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(55 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Fly>(Vec2(58 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(61 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
+
+		addEnemy(std::make_unique<Bee>(Vec2(64 * BLOCK_SIZE, 5 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(67 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Ladybug>(Vec2(70 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(73 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
 		break;
 
 	case StageNumber::Stage3:
-		// Stage3: 魔法の森 - 飛行敵が多い、高難易度
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<NormalSlime>(Vec2(300.0, 300.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(500.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(700.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(900.0, 180.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(1100.0, 250.0)));
+		// Stage3: 魔法の森 - 高難易度、飛行敵多め
 
-		// 中間エリア (1280-2560)
-		addEnemy(std::make_unique<Bee>(Vec2(1300.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1500.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(1700.0, 180.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(1900.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(2100.0, 250.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(2300.0, 150.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2500.0, 300.0)));
+		// 序盤エリア (800-1600px) - 魔法の森の入口
+		addEnemy(std::make_unique<NormalSlime>(Vec2(1000.0, 768.0)));  // 地面
+		addEnemy(std::make_unique<Bee>(Vec2(1200.0, 350.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1400.0, 576.0)));   // プラットフォーム上
 
-		// 後半エリア (2560-3840)
-		addEnemy(std::make_unique<Fly>(Vec2(2700.0, 180.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2900.0, 300.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(3100.0, 150.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(3300.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(3500.0, 250.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3700.0, 180.0)));
+		// 中間エリア前半 (1600-2400px) - 飛行敵中心
+		addEnemy(std::make_unique<Fly>(Vec2(1600.0, 400.0)));          // 空中
+		addEnemy(std::make_unique<Ladybug>(Vec2(1800.0, 448.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(2000.0, 320.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(2200.0, 768.0)));   // 地面
 
-		// 終盤エリア (3840-5120) - 最高難易度
-		addEnemy(std::make_unique<Bee>(Vec2(3900.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4100.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4300.0, 280.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(4500.0, 180.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(4700.0, 250.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 300.0)));
+		// 中間エリア後半 (2400-3200px) - Saw初登場
+		addEnemy(std::make_unique<Fly>(Vec2(2400.0, 380.0)));          // 空中
+		addEnemy(std::make_unique<Saw>(Vec2(2600.0, 768.0)));          // 地面（危険な敵）
+		addEnemy(std::make_unique<Ladybug>(Vec2(2800.0, 512.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(3000.0, 300.0)));          // 空中
+
+		// 後半エリア (3200-4000px) - 混合配置
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(3200.0, 576.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(3400.0, 350.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3600.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Bee>(Vec2(3800.0, 280.0)));          // 空中
+
+		// 終盤エリア (4000-4800px) - 最高難度
+		addEnemy(std::make_unique<Saw>(Vec2(4000.0, 448.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(4200.0, 768.0)));      // 地面
+		addEnemy(std::make_unique<Fly>(Vec2(4400.0, 320.0)));          // 空中
+		addEnemy(std::make_unique<Bee>(Vec2(4600.0, 250.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(4800.0, 512.0)));   // プラットフォーム上
 		break;
 
 	case StageNumber::Stage4:
-		// Stage4: 雪山 - 危険な敵の組み合わせ、高密度配置
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<NormalSlime>(Vec2(300.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(500.0, 280.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(700.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(900.0, 180.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(1100.0, 160.0)));
+		// Stage4: 雪山ステージ - 危険な敵の組み合わせ、滑りやすい地形を想定
 
-		// 中間エリア (1280-2560)
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1300.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(1500.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(1700.0, 220.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(1900.0, 180.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(2100.0, 160.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2300.0, 300.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2500.0, 300.0)));
+		// 序盤エリア (800-1600px) - 雪山の麓
+		addEnemy(std::make_unique<NormalSlime>(Vec2(1000.0, 768.0)));  // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(1200.0, 768.0)));          // 地面（早めに危険）
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1400.0, 640.0)));   // プラットフォーム上
 
-		// 後半エリア (2560-3840)
-		addEnemy(std::make_unique<Saw>(Vec2(2700.0, 280.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(2900.0, 160.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(3300.0, 220.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3500.0, 180.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(3700.0, 280.0)));
+		// 中間エリア前半 (1600-2400px) - 山腹
+		addEnemy(std::make_unique<Fly>(Vec2(1600.0, 450.0)));          // 空中
+		addEnemy(std::make_unique<Bee>(Vec2(1800.0, 380.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(2000.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(2200.0, 512.0)));          // プラットフォーム上
 
-		// 終盤エリア (3840-5120) - 最高難易度
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3900.0, 300.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(4100.0, 160.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4300.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(4500.0, 220.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(4700.0, 180.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 300.0)));
+		// 中間エリア後半 (2400-3200px) - 氷の洞窟
+		addEnemy(std::make_unique<Ladybug>(Vec2(2400.0, 448.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(2600.0, 350.0)));          // 空中
+		addEnemy(std::make_unique<Bee>(Vec2(2800.0, 320.0)));          // 空中
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(3000.0, 768.0)));   // 地面
+
+		// 後半エリア (3200-4000px) - 山頂付近
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3200.0, 576.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Saw>(Vec2(3400.0, 768.0)));          // 地面
+		addEnemy(std::make_unique<Bee>(Vec2(3600.0, 280.0)));          // 空中
+		addEnemy(std::make_unique<Ladybug>(Vec2(3800.0, 384.0)));      // プラットフォーム上
+
+		// 終盤エリア (4000-5000px) - 山頂
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(4000.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Bee>(Vec2(4200.0, 250.0)));          // 空中
+		addEnemy(std::make_unique<Saw>(Vec2(4400.0, 576.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(4600.0, 448.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(4800.0, 320.0)));          // 空中
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 768.0)));   // 地面
 		break;
 
 	case StageNumber::Stage5:
-		// Stage5: 石の遺跡 - 非常に高難易度、敵密度最大
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<Saw>(Vec2(300.0, 280.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(500.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(700.0, 280.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(900.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1100.0, 300.0)));
+		// Stage5: 古代遺跡 - 非常に高難易度、敵密度最大
 
-		// 中間エリア (1280-2560)
-		addEnemy(std::make_unique<Saw>(Vec2(1300.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(1500.0, 200.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1700.0, 300.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(1900.0, 170.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(2100.0, 150.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(2300.0, 280.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2500.0, 300.0)));
+		// 序盤エリア (800-1600px) - 遺跡の入口
+		addEnemy(std::make_unique<Saw>(Vec2(900.0, 768.0)));           // 地面（即座に危険）
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1100.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(1300.0, 640.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(1500.0, 350.0)));          // 空中
 
-		// 後半エリア (2560-3840)
-		addEnemy(std::make_unique<Bee>(Vec2(2700.0, 150.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(2900.0, 280.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(3300.0, 200.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3500.0, 170.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(3700.0, 280.0)));
+		// 中間エリア前半 (1600-2400px) - 遺跡内部
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1700.0, 512.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Saw>(Vec2(1900.0, 768.0)));          // 地面
+		addEnemy(std::make_unique<Ladybug>(Vec2(2100.0, 448.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(2300.0, 768.0)));   // 地面
 
-		// 終盤エリア (3840-5120) - 地獄の難易度
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3900.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4100.0, 280.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(4300.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4500.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4700.0, 280.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 300.0)));
+		// 中間エリア後半 (2400-3200px) - 古代の罠
+		addEnemy(std::make_unique<Fly>(Vec2(2500.0, 380.0)));          // 空中
+		addEnemy(std::make_unique<Bee>(Vec2(2700.0, 300.0)));          // 空中
+		addEnemy(std::make_unique<Saw>(Vec2(2900.0, 576.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 320.0)));   // 高いプラットフォーム上
+
+		// 後半エリア (3200-4000px) - 宝物庫への道
+		addEnemy(std::make_unique<Bee>(Vec2(3300.0, 280.0)));          // 空中
+		addEnemy(std::make_unique<Saw>(Vec2(3500.0, 768.0)));          // 地面
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3700.0, 448.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(3900.0, 768.0)));      // 地面
+
+		// 終盤エリア (4000-5000px) - 宝物庫
+		addEnemy(std::make_unique<Fly>(Vec2(4100.0, 350.0)));          // 空中
+		addEnemy(std::make_unique<Saw>(Vec2(4300.0, 512.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(4500.0, 250.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(4700.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(4900.0, 384.0)));          // プラットフォーム上
 		break;
 
 	case StageNumber::Stage6:
-		// Stage6: 最終ステージ - 全敵種混在の最高難易度
-		// 前半エリア (0-1280)
-		addEnemy(std::make_unique<NormalSlime>(Vec2(300.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(500.0, 280.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(700.0, 300.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(900.0, 150.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(1100.0, 180.0)));
+		// Stage6: 地下洞窟（最終ステージ） - 全敵種混在の究極難易度
 
-		// 中間エリア1 (1280-2560)
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1300.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(1500.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(1700.0, 200.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(1900.0, 150.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(2100.0, 180.0)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2300.0, 300.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2500.0, 300.0)));
+		// 序盤エリア (800-1600px) - 洞窟入口
+		addEnemy(std::make_unique<NormalSlime>(Vec2(900.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(1100.0, 768.0)));          // 地面
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1300.0, 576.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(1500.0, 350.0)));          // 空中
 
-		// 中間エリア2 (2560-3840)
-		addEnemy(std::make_unique<Saw>(Vec2(2700.0, 280.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(2900.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 300.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(3300.0, 200.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(3500.0, 280.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(3700.0, 180.0)));
+		// 第1中間エリア (1600-2400px) - 地下第1層
+		addEnemy(std::make_unique<Fly>(Vec2(1700.0, 400.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(1900.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(2100.0, 512.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(2300.0, 448.0)));      // プラットフォーム上
 
-		// 終盤エリア (3840-5120) - 究極の難易度
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3900.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4100.0, 280.0)));
-		addEnemy(std::make_unique<Bee>(Vec2(4300.0, 150.0)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4500.0, 300.0)));
-		addEnemy(std::make_unique<Saw>(Vec2(4700.0, 280.0)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(4900.0, 200.0)));
-		addEnemy(std::make_unique<Fly>(Vec2(5000.0, 180.0)));
+		// 第2中間エリア (2400-3200px) - 地下第2層
+		addEnemy(std::make_unique<Bee>(Vec2(2500.0, 300.0)));          // 空中
+		addEnemy(std::make_unique<Fly>(Vec2(2700.0, 380.0)));          // 空中
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(2900.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 384.0)));   // プラットフォーム上
+
+		// 第3中間エリア (3200-4000px) - 地下第3層
+		addEnemy(std::make_unique<Saw>(Vec2(3300.0, 768.0)));          // 地面
+		addEnemy(std::make_unique<Bee>(Vec2(3500.0, 280.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(3700.0, 576.0)));   // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(3900.0, 768.0)));      // 地面
+
+		// 最終エリア (4000-5000px) - 最深部
+		addEnemy(std::make_unique<Saw>(Vec2(4100.0, 448.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Bee>(Vec2(4300.0, 250.0)));          // 空中
+		addEnemy(std::make_unique<SpikeSlime>(Vec2(4500.0, 768.0)));   // 地面
+		addEnemy(std::make_unique<Saw>(Vec2(4700.0, 512.0)));          // プラットフォーム上
+		addEnemy(std::make_unique<Ladybug>(Vec2(4900.0, 384.0)));      // プラットフォーム上
+		addEnemy(std::make_unique<Fly>(Vec2(5000.0, 320.0)));          // 空中
+		break;
+
+	default:
+		// フォールバック（Stage1と同じ配置）
+		addEnemy(std::make_unique<NormalSlime>(Vec2(12 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(16 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<Fly>(Vec2(19 * BLOCK_SIZE, 8 * BLOCK_SIZE)));
+		addEnemy(std::make_unique<SlimeBlock>(Vec2(25 * BLOCK_SIZE, GROUND_LEVEL)));
+		addEnemy(std::make_unique<NormalSlime>(Vec2(31 * BLOCK_SIZE, GROUND_LEVEL)));
 		break;
 	}
 }
 
 void GameScene::updateEnemies()
 {
-	// 敵の更新と死亡した敵の削除
-	for (auto& enemy : m_enemies)
+	if (!m_dayNightSystem)
 	{
-		if (enemy && enemy->isActive())
+		// 昼夜システムがない場合は通常更新
+		for (auto& enemy : m_enemies)
 		{
+			if (enemy && enemy->isActive())
+			{
+				enemy->update();
+			}
+		}
+	}
+	else
+	{
+		// 昼夜システムによる敵の挙動変更
+		const double speedMultiplier = m_dayNightSystem->getEnemySpeedMultiplier();
+		const double aggressionMultiplier = m_dayNightSystem->getEnemyAggressionMultiplier();
+		const bool isNightTime = m_dayNightSystem->isNight();
+		const bool isDangerousTime = m_dayNightSystem->isDangerous();
+
+		for (auto& enemy : m_enemies)
+		{
+			if (!enemy || !enemy->isActive()) continue;
+
+			// 敵タイプごとの夜間挙動
+			switch (enemy->getType())
+			{
+			case EnemyType::NormalSlime:
+				if (isNightTime)
+				{
+					// 夜は速度アップとジャンプ力増加
+					NormalSlime* slime = static_cast<NormalSlime*>(enemy.get());
+					Vec2 velocity = slime->getVelocity();
+
+					// 移動速度を1.5倍に
+					if (std::abs(velocity.x) > 0)
+					{
+						velocity.x = (velocity.x > 0 ? 1 : -1) * 80.0 * speedMultiplier;
+					}
+
+					// 時々ジャンプ（通常はジャンプしない）
+					if (slime->isGrounded() && Random(0.0, 1.0) < 0.01 * aggressionMultiplier)
+					{
+						velocity.y = -200.0;  // 小ジャンプ
+					}
+
+					slime->setVelocity(velocity);
+				}
+				break;
+
+			case EnemyType::SpikeSlime:
+				if (isNightTime)
+				{
+					// 夜は追跡モードになる（プレイヤーの方向に向かう）
+					SpikeSlime* spike = static_cast<SpikeSlime*>(enemy.get());
+					if (m_player)
+					{
+						const Vec2 playerPos = m_player->getPosition();
+						const Vec2 enemyPos = spike->getPosition();
+						const double distance = playerPos.distanceFrom(enemyPos);
+
+						// 300ピクセル以内なら追跡
+						if (distance < 300.0)
+						{
+							const bool shouldGoLeft = playerPos.x < enemyPos.x;
+							const EnemyDirection targetDir = shouldGoLeft ?
+								EnemyDirection::Left : EnemyDirection::Right;
+
+							if (spike->getDirection() != targetDir)
+							{
+								spike->changeDirection();
+							}
+
+							// 追跡速度
+							Vec2 velocity = spike->getVelocity();
+							velocity.x = (shouldGoLeft ? -1 : 1) * 60.0 * speedMultiplier;
+							spike->setVelocity(velocity);
+						}
+					}
+				}
+				break;
+
+			case EnemyType::Bee:
+				if (isDangerousTime)
+				{
+					// 夕暮れから夜にかけて積極的に追跡
+					Bee* bee = static_cast<Bee*>(enemy.get());
+					if (m_player)
+					{
+						// 追跡範囲を拡大（通常200→夜は400）
+						const double chaseRange = isNightTime ? 400.0 : 300.0;
+						const Vec2 playerPos = m_player->getPosition();
+						const double distance = bee->getPosition().distanceFrom(playerPos);
+
+						if (distance < chaseRange)
+						{
+							bee->updateChase(playerPos);
+
+							// 夜は追跡速度アップ
+							Vec2 velocity = bee->getVelocity();
+							velocity *= speedMultiplier;
+							bee->setVelocity(velocity);
+						}
+					}
+				}
+				break;
+
+			case EnemyType::Fly:
+				if (isNightTime)
+				{
+					// 夜は集団行動（プレイヤーの周りに集まる）
+					Fly* fly = static_cast<Fly*>(enemy.get());
+					if (m_player)
+					{
+						const Vec2 playerPos = m_player->getPosition();
+						const Vec2 flyPos = fly->getPosition();
+						const double distance = playerPos.distanceFrom(flyPos);
+
+						// 500ピクセル以内なら円を描くように動く
+						if (distance < 500.0 && distance > 100.0)
+						{
+							// プレイヤーの周りを旋回
+							const double angle = std::atan2(flyPos.y - playerPos.y,
+															flyPos.x - playerPos.x);
+							const double targetAngle = angle + 0.02 * aggressionMultiplier;
+							const double targetDistance = 200.0;
+
+							const Vec2 targetPos = playerPos +
+								Vec2(std::cos(targetAngle), std::sin(targetAngle)) * targetDistance;
+
+							const Vec2 direction = (targetPos - flyPos).normalized();
+							Vec2 velocity = direction * 100.0 * speedMultiplier;
+
+							// 上下の波動を追加
+							velocity.y += std::sin(Scene::Time() * 5.0) * 30.0;
+
+							fly->setVelocity(velocity);
+						}
+					}
+				}
+				break;
+
+			default:
+				// その他の敵は速度変更のみ
+				if (isDangerousTime)
+				{
+					Vec2 velocity = enemy->getVelocity();
+					velocity.x *= speedMultiplier;
+					enemy->setVelocity(velocity);
+				}
+				break;
+			}
+
+			// 共通の更新処理
 			enemy->update();
 		}
 	}
@@ -948,31 +1188,41 @@ void GameScene::drawEnemies() const
 	{
 		if (enemy->isActive() || enemy->getState() == EnemyState::Flattened)
 		{
-			// 敵の描画位置をカメラオフセットで調整
 			const Vec2 enemyWorldPos = enemy->getPosition();
 			const Vec2 enemyScreenPos = m_stage->worldToScreenPosition(enemyWorldPos);
 
-			// 画面内にある敵のみ描画
 			if (enemyScreenPos.x >= -100 && enemyScreenPos.x <= Scene::Width() + 100)
 			{
-				// 敵のテクスチャを直接画面座標で描画
-				const Texture currentTexture = enemy->getCurrentTexture();
+				// 昼夜による色調整
+				ColorF tint = ColorF(1.0, 1.0, 1.0);
+				if (m_dayNightSystem)
+				{
+					// 夜は赤みがかった色に
+					if (m_dayNightSystem->isNight())
+					{
+						tint = ColorF(1.2, 0.8, 0.8);
+					}
+					else if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Sunset)
+					{
+						tint = ColorF(1.1, 0.9, 0.8);
+					}
+				}
 
+				const Texture currentTexture = enemy->getCurrentTexture();
 				if (currentTexture)
 				{
-					// 向きに応じて左右反転
 					if (enemy->getDirection() == EnemyDirection::Left)
 					{
-						currentTexture.mirrored().drawAt(enemyScreenPos);
+						currentTexture.mirrored().drawAt(enemyScreenPos, tint);
 					}
 					else
 					{
-						currentTexture.drawAt(enemyScreenPos);
+						currentTexture.drawAt(enemyScreenPos, tint);
 					}
 				}
 				else
 				{
-					// フォールバック：敵タイプに応じた色の円
+					// フォールバック描画
 					ColorF fallbackColor;
 					switch (enemy->getType())
 					{
@@ -985,10 +1235,49 @@ void GameScene::drawEnemies() const
 					case EnemyType::Fly:          fallbackColor = ColorF(0.3, 0.3, 0.3); break;
 					default:                      fallbackColor = ColorF(0.5, 0.5, 0.5); break;
 					}
-					Circle(enemyScreenPos, 32).draw(fallbackColor);
+					Circle(enemyScreenPos, 32).draw(fallbackColor * tint);
 				}
 
-				// エフェクト描画（画面座標で）
+				// 夜間の赤く光るエフェクト
+				if (m_dayNightSystem && m_dayNightSystem->isDangerous())
+				{
+					const ColorF glowColor = m_dayNightSystem->getEnemyGlowColor();
+					if (glowColor.a > 0.01)
+					{
+						// 凶暴化している敵のみ光る
+						bool shouldGlow = false;
+						switch (enemy->getType())
+						{
+						case EnemyType::NormalSlime:
+						case EnemyType::SpikeSlime:
+						case EnemyType::Bee:
+						case EnemyType::Fly:
+							shouldGlow = true;
+							break;
+						default:
+							break;
+						}
+
+						if (shouldGlow)
+						{
+							Circle(enemyScreenPos, 45).draw(glowColor);
+							Circle(enemyScreenPos, 35).drawFrame(3.0,
+								ColorF(glowColor.r, 0.0, 0.0, glowColor.a * 1.5));
+
+							// 目の光
+							if (m_dayNightSystem->isNight())
+							{
+								const double eyeGlow = std::sin(Scene::Time() * 8.0) * 0.3 + 0.7;
+								Circle(enemyScreenPos + Vec2(-8, -5), 3)
+									.draw(ColorF(1.0, 0.0, 0.0, eyeGlow));
+								Circle(enemyScreenPos + Vec2(8, -5), 3)
+									.draw(ColorF(1.0, 0.0, 0.0, eyeGlow));
+							}
+						}
+					}
+				}
+
+				// 既存のエフェクト描画
 				if (enemy->getState() == EnemyState::Flattened)
 				{
 					drawEnemyFlattenedEffect(enemyScreenPos, enemy.get());
@@ -996,35 +1285,6 @@ void GameScene::drawEnemies() const
 				else if (enemy->getState() == EnemyState::Hit)
 				{
 					drawEnemyHitEffect(enemyScreenPos, enemy.get());
-				}
-
-				// 特殊エフェクト描画
-				switch (enemy->getType())
-				{
-				case EnemyType::SpikeSlime:
-				{
-					// SpikeSlimeは常にスパイク警告エフェクト
-					if (enemy->isActive() && enemy->isAlive())
-					{
-						const double time = Scene::Time();
-						const double pulseAlpha = 0.2 + 0.15 * std::sin(time * 8.0);
-						Circle(enemyScreenPos, 55).draw(ColorF(1.0, 0.0, 0.0, pulseAlpha * 0.4));
-						Circle(enemyScreenPos, 50).drawFrame(2.0, ColorF(1.0, 0.2, 0.0, pulseAlpha));
-					}
-				}
-				break;
-
-				case EnemyType::Saw:
-				{
-					// Sawの危険エフェクト
-					const double time = Scene::Time();
-					const double pulseAlpha = 0.15 + 0.1 * std::sin(time * 10.0);
-					Circle(enemyScreenPos, 60).draw(ColorF(1.0, 0.2, 0.0, pulseAlpha));
-				}
-				break;
-
-				default:
-					break;
 				}
 			}
 		}
@@ -1073,9 +1333,15 @@ void GameScene::updatePlayerEnemyCollision()
 	if (!m_player || !m_stage) return;
 
 	const Vec2 playerPos = m_player->getPosition();
-	const double halfWidth = 50.0;
-	const double halfHeight = 50.0;
-	const RectF playerRect(playerPos.x - halfWidth, playerPos.y - halfHeight, halfWidth * 2, halfHeight * 2);
+	const double BLOCK_SIZE = 64.0;
+
+	// ★ プレイヤーの衝突矩形を1ブロック基準で統一
+	const RectF playerRect(
+		playerPos.x - BLOCK_SIZE / 2,
+		playerPos.y - BLOCK_SIZE / 2,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
 
 	for (auto& enemy : m_enemies)
 	{
@@ -1088,29 +1354,25 @@ void GameScene::updatePlayerEnemyCollision()
 			// 特殊な敵の処理
 			handleSpecialEnemyCollision(enemy.get());
 
-			// 踏みつけ判定（Flattened状態の敵は踏めない）
+			// 踏みつけ判定（1ブロック基準で改良）
 			if (isPlayerStompingEnemy(playerRect, enemyRect) &&
 				canStompEnemy(enemy.get()) &&
-				enemy->getState() != EnemyState::Flattened)  // ← この条件を追加
+				enemy->getState() != EnemyState::Flattened)
 			{
 				handlePlayerStompEnemy(enemy.get());
 			}
 			else
 			{
-				// 横からの衝突（ダメージ） - 無敵状態でない場合のみ
-				// ただし、Flattened状態の敵からはダメージを受けない
+				// 横からの衝突（ダメージ）
 				if (!m_player->isInvincible() && enemy->getState() != EnemyState::Flattened)
 				{
-					// 危険な敵かどうかチェック
 					bool shouldTakeDamage = false;
 
 					switch (enemy->getType())
 					{
 					case EnemyType::Saw:
-						shouldTakeDamage = true;  // Sawは常に危険
-						break;
 					case EnemyType::SpikeSlime:
-						shouldTakeDamage = true;  // SpikeSlimeは常に危険（スパイクがある）
+						shouldTakeDamage = true;  // 常に危険
 						break;
 					default:
 						shouldTakeDamage = true;  // 通常の敵からもダメージ
@@ -1218,30 +1480,40 @@ void GameScene::addEnemy(std::unique_ptr<EnemyBase> enemy)
 
 bool GameScene::isPlayerStompingEnemy(const RectF& playerRect, const RectF& enemyRect) const
 {
-	// プレイヤーが敵の上部にいて、下向きの速度を持っているかチェック
+	// ★ 1ブロック基準での踏みつけ判定を改良
 	const Vec2 playerVelocity = m_player->getVelocity();
+	const double BLOCK_SIZE = 64.0;
+
+	// プレイヤーが落下中であることを確認
+	if (playerVelocity.y <= 0) return false;
+
+	// プレイヤーの下端と敵の上端の距離をチェック
 	const double playerBottom = playerRect.y + playerRect.h;
 	const double enemyTop = enemyRect.y;
 
-	// プレイヤーの下端が敵の上部に近く、下向きの速度があるか
-	return (playerBottom <= enemyTop + 20.0) && (playerVelocity.y >= 0);
+	// 1ブロックの1/4以内の距離で踏みつけと判定
+	const double stompTolerance = BLOCK_SIZE * 0.25;
+
+	return (playerBottom >= enemyTop && playerBottom <= enemyTop + stompTolerance);
 }
 
 void GameScene::handlePlayerStompEnemy(EnemyBase* enemy)
 {
 	if (!enemy || !enemy->isActive()) return;
 
-	// 敵を踏みつけた処理（シンプルに）
 	enemy->onStomp();
-
-	// 敵を踏んだ音を再生
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_HIT);
 
-	// プレイヤーに小さなジャンプを与える
+	// 衝撃波エフェクトを追加
+	if (m_shaderEffects && m_stage)
+	{
+		m_shaderEffects->triggerShockwave(enemy->getPosition(), m_stage->getCameraOffset());
+	}
+
 	if (m_player)
 	{
 		Vec2 playerVelocity = m_player->getVelocity();
-		playerVelocity.y = -300.0;  // 小さなバウンス
+		playerVelocity.y = -300.0;
 		m_player->setVelocity(playerVelocity);
 	}
 }
@@ -1302,20 +1574,24 @@ void GameScene::handlePlayerHitByEnemy(EnemyBase* enemy)
 {
 	if (!enemy) return;
 
+	const double BLOCK_SIZE = 64.0;
+
 	// プレイヤーがダメージを受ける
 	m_player->hit();
 
-	// ノックバック効果
+	// ノックバック効果（1ブロック基準）
 	const Vec2 playerPos = m_player->getPosition();
 	const Vec2 enemyPos = enemy->getPosition();
 	const Vec2 knockbackDirection = (playerPos - enemyPos).normalized();
 
 	Vec2 playerVelocity = m_player->getVelocity();
-	playerVelocity.x = knockbackDirection.x * 200.0;  // ノックバック力
-	playerVelocity.y = -150.0;  // 軽く浮く
+	playerVelocity.x = knockbackDirection.x * BLOCK_SIZE * 3.0;  // 3ブロック/秒のノックバック
+	playerVelocity.y = -BLOCK_SIZE * 2.0;  // 2ブロック/秒で軽く浮く
 	m_player->setVelocity(playerVelocity);
+
 	m_hudSystem->subtractLife(1);  // ライフを1減らす
 }
+
 // 新敵用の特殊処理メソッド
 void GameScene::handleSpecialEnemyCollision(EnemyBase* enemy)
 {
@@ -1572,7 +1848,7 @@ void GameScene::updateFireballDestructionEffects()
 	}
 }
 
-// ★ 新規メソッド: 統一衝突判定システムを使った衝突処理
+//統一衝突判定システムを使った衝突処理
 void GameScene::updatePlayerCollisionsUnified()
 {
 	if (!m_player || !m_collisionSystem) return;
@@ -1581,11 +1857,241 @@ void GameScene::updatePlayerCollisionsUnified()
 	m_collisionSystem->resolvePlayerCollisions(m_player.get(), m_stage.get(), m_blockSystem.get());
 }
 
-// ★ 新規メソッド: BlockSystemとの相互作用のみを処理
+// BlockSystemとの相互作用のみを処理
 void GameScene::updateBlockSystemInteractions()
 {
 	if (!m_blockSystem || !m_player) return;
 
 	// BlockSystem特有の処理（ブロックを叩く、コイン獲得など）
 	m_blockSystem->update(m_player.get());
+}
+
+void GameScene::updateDayNight()
+{
+    if (!m_dayNightSystem) return;
+    
+    // 昼夜の基本更新はDayNightSystem内で行われる
+    // ここではゲーム固有の昼夜影響を処理
+    
+    // ゴール到達時は時間を停止
+    if (m_goalReached)
+    {
+        m_dayNightSystem->pauseTime(true);
+    }
+    
+    // プレイヤーが死亡した場合も時間停止
+    if (m_player && (m_player->isDead() || m_player->isExploding()))
+    {
+        m_dayNightSystem->pauseTime(true);
+    }
+    
+    // 夜の追加効果
+    if (m_dayNightSystem->isNight())
+    {
+        // 夜は視界が悪くなる効果（オプション）
+        // プレイヤーの移動速度をわずかに低下
+        if (m_player && !m_player->isExploding())
+        {
+            Vec2 velocity = m_player->getVelocity();
+            velocity.x *= 0.9; // 夜は10%移動速度低下
+            m_player->setVelocity(velocity);
+        }
+    }
+}
+
+void GameScene::drawDayNightEffects() const
+{
+    if (!m_dayNightSystem) return;
+    
+    // 時間帯のUI表示
+    const Vec2 timeDisplayPos(Scene::Width() - 200, 20);
+    Font timeFont(18, Typeface::Bold);
+    
+    // 時間帯のテキスト
+    String phaseText;
+    ColorF phaseColor;
+    
+    switch (m_dayNightSystem->getCurrentPhase())
+    {
+    case DayNightSystem::TimePhase::Day:
+        phaseText = U"DAY TIME";
+        phaseColor = ColorF(1.0, 0.9, 0.3);
+        break;
+    case DayNightSystem::TimePhase::Sunset:
+        phaseText = U"SUNSET";
+        phaseColor = ColorF(1.0, 0.6, 0.3);
+        break;
+    case DayNightSystem::TimePhase::Night:
+        phaseText = U"NIGHT TIME";
+        phaseColor = ColorF(0.6, 0.6, 1.0);
+        break;
+    case DayNightSystem::TimePhase::Dawn:
+        phaseText = U"DAWN";
+        phaseColor = ColorF(1.0, 0.8, 0.5);
+        break;
+    }
+    
+    // 背景ボックス
+    RectF(timeDisplayPos.x - 10, timeDisplayPos.y - 5, 180, 30)
+        .draw(ColorF(0.0, 0.0, 0.0, 0.5));
+    
+    timeFont(phaseText).draw(timeDisplayPos, phaseColor);
+    
+    // 時間の進行バー
+    const double timeOfDay = m_dayNightSystem->getTimeOfDay();
+    const Vec2 barPos(timeDisplayPos.x, timeDisplayPos.y + 35);
+    const Size barSize(160, 8);
+    
+    // バーの背景
+    RectF(barPos, barSize).draw(ColorF(0.2, 0.2, 0.2, 0.7));
+    
+    // 時間の進行状況
+    const double barProgress = timeOfDay;
+    RectF(barPos, barSize.x * barProgress, barSize.y).draw(phaseColor);
+    
+    // バーの枠
+    RectF(barPos, barSize).drawFrame(1.0, ColorF(0.8, 0.8, 0.8));
+    
+    // 夜の警告メッセージ
+    if (m_dayNightSystem->isNight())
+    {
+        const double pulse = std::sin(Scene::Time() * 3.0) * 0.3 + 0.7;
+        const ColorF warningColor = ColorF(1.0, 0.3, 0.3, pulse);
+        
+        Font warningFont(24, Typeface::Bold);
+        const String warningText = U"⚠ DANGER! Enemies are aggressive!";
+        const Vec2 warningPos(Scene::Center().x - 150, 80);
+        
+        // 警告背景
+        RectF(warningPos.x - 10, warningPos.y - 5, 320, 35)
+            .draw(ColorF(0.0, 0.0, 0.0, pulse * 0.6));
+        
+        warningFont(warningText).draw(warningPos, warningColor);
+    }
+    
+    // スターによる時間ボーナス表示
+    if (m_starSystem)
+    {
+        const int starsCollected = m_starSystem->getCollectedStarsCount();
+        if (starsCollected > 0)
+        {
+            const String bonusText = U"⭐×{} Time Bonus: +{}s"_fmt(
+                starsCollected, 
+                starsCollected * 10  // STAR_TIME_BONUSと同じ値
+            );
+            Font(16)(bonusText).draw(timeDisplayPos.x, timeDisplayPos.y + 50, ColorF(1.0, 1.0, 0.5));
+        }
+    }
+    
+    // 月や太陽のアイコン描画（装飾的）
+    if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Night)
+    {
+        // 月のアイコン
+        Circle(100, 100, 30).draw(ColorF(0.9, 0.9, 1.0, 0.3));
+        Circle(110, 90, 25).draw(ColorF(0.1, 0.1, 0.2, 0.3)); // 月のクレーター
+    }
+    else if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Day)
+    {
+        // 太陽のアイコン
+        Circle(100, 100, 25).draw(ColorF(1.0, 0.9, 0.3, 0.5));
+        
+        // 太陽の光線
+        for (int i = 0; i < 8; ++i)
+        {
+            const double angle = i * Math::TwoPi / 8.0;
+            const Vec2 start = Vec2(100, 100) + Vec2(std::cos(angle), std::sin(angle)) * 30;
+            const Vec2 end = Vec2(100, 100) + Vec2(std::cos(angle), std::sin(angle)) * 40;
+            Line(start, end).draw(3.0, ColorF(1.0, 0.9, 0.3, 0.3));
+        }
+    }
+}
+
+
+void GameScene::drawDayNightUI() const
+{
+	if (!m_dayNightSystem) return;
+
+	// UI配置位置の計算
+	const Vec2 gaugePos(Scene::Width() - 250, 20);
+	const Vec2 infoPos(Scene::Width() - 250, 55);
+
+	// 時間ゲージUI描画
+	m_dayNightSystem->drawTimeGaugeUI(gaugePos);
+
+	// 時間情報UI描画
+	m_dayNightSystem->drawTimeInfoUI(infoPos);
+
+	// 夜時間中の追加警告表示
+	if (m_dayNightSystem->isNight())
+	{
+		drawNightWarningEffects();
+	}
+
+	// 夕暮れ時の注意表示
+	else if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Sunset)
+	{
+		drawSunsetCautionEffects();
+	}
+}
+
+// 夜時間中の警告エフェクト
+void GameScene::drawNightWarningEffects() const
+{
+	// 画面端の赤い点滅
+	const double pulse = std::sin(Scene::Time() * 6.0) * 0.5 + 0.5;
+	const ColorF warningColor(1.0, 0.0, 0.0, pulse * 0.3);
+
+	// 上端の警告バー
+	RectF(0, 0, Scene::Width(), 5).draw(warningColor);
+	// 下端の警告バー
+	RectF(0, Scene::Height() - 5, Scene::Width(), 5).draw(warningColor);
+	// 左端の警告バー
+	RectF(0, 0, 5, Scene::Height()).draw(warningColor);
+	// 右端の警告バー
+	RectF(Scene::Width() - 5, 0, 5, Scene::Height()).draw(warningColor);
+
+	// 中央の大きな警告メッセージ（一定間隔で表示）
+	const double messageTime = std::fmod(Scene::Time(), 8.0);
+	if (messageTime < 2.0)
+	{
+		const double messageAlpha = messageTime < 1.0 ?
+			messageTime : (2.0 - messageTime);
+
+		const String warningMsg = U"NIGHT TIME - Enemies are aggressive!";
+		const Vec2 msgPos(Scene::Center().x, 120);
+
+		Font(28, Typeface::Bold)(warningMsg).drawAt(msgPos,
+			ColorF(1.0, 0.2, 0.2, messageAlpha * 0.8));
+
+		// 背景の半透明ボックス
+		const SizeF msgSize = Font(28)(warningMsg).region().size;
+		RectF(msgPos.x - msgSize.x / 2 - 15, msgPos.y - msgSize.y / 2 - 8,
+			  msgSize.x + 30, msgSize.y + 16)
+			.draw(ColorF(0.0, 0.0, 0.0, messageAlpha * 0.5));
+	}
+}
+
+//夕暮れ時の注意エフェクト
+void GameScene::drawSunsetCautionEffects() const
+{
+	const double pulse = std::sin(Scene::Time() * 3.0) * 0.3 + 0.4;
+	const ColorF cautionColor(1.0, 0.6, 0.0, pulse * 0.4);
+
+	// 上端の注意バー（夜よりも控えめ）
+	RectF(0, 0, Scene::Width(), 3).draw(cautionColor);
+	RectF(0, Scene::Height() - 3, Scene::Width(), 3).draw(cautionColor);
+
+	// 夕暮れメッセージ（控えめに表示）
+	const double messageTime = std::fmod(Scene::Time(), 12.0);
+	if (messageTime < 1.5)
+	{
+		const double messageAlpha = messageTime < 0.75 ?
+			messageTime / 0.75 : (1.5 - messageTime) / 0.75;
+
+		const String cautionMsg = U"SUNSET TIME - Be cautious";
+		const Vec2 msgPos(Scene::Center().x, 140);
+
+		Font(20)(cautionMsg).drawAt(msgPos,
+			ColorF(1.0, 0.7, 0.0, messageAlpha * 0.6));
+	}
 }

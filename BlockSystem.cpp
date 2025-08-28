@@ -43,16 +43,17 @@ void BlockSystem::update(Player* player)
 	handlePlayerInteraction(player);
 }
 
-// ★ 新しい統一衝突判定システム用メソッド
 Array<RectF> BlockSystem::getCollisionRects() const
 {
 	Array<RectF> collisionRects;
+	collisionRects.reserve(m_blocks.size()); // パフォーマンス向上
 
 	for (const auto& block : m_blocks)
 	{
 		if (block && isBlockSolid(*block))
 		{
-			RectF blockRect = getBlockRect(*block);
+			// ★ 全てのブロックを64x64基準で統一
+			RectF blockRect(block->position.x, block->position.y, BLOCK_SIZE, BLOCK_SIZE);
 			collisionRects.push_back(blockRect);
 		}
 	}
@@ -60,14 +61,26 @@ Array<RectF> BlockSystem::getCollisionRects() const
 	return collisionRects;
 }
 
+
 bool BlockSystem::hasBlockAt(const Vec2& position) const
 {
+	const double BLOCK_SIZE = 64.0;
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	// ★ 指定位置に1ブロック分の矩形でブロックがあるかチェック
+	const RectF checkRect(
+		position.x - halfSize,
+		position.y - halfSize,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
+
 	for (const auto& block : m_blocks)
 	{
 		if (block && isBlockSolid(*block))
 		{
 			RectF blockRect = getBlockRect(*block);
-			if (blockRect.contains(position))
+			if (blockRect.intersects(checkRect))
 			{
 				return true;
 			}
@@ -89,16 +102,58 @@ void BlockSystem::updateBlockInteractions(Player* player)
 {
 	if (!player) return;
 
-	// 全てのブロックを更新（バウンスアニメーション、ヒット判定など）
+	const double BLOCK_SIZE = 64.0;
+	const Vec2 playerPos = player->getPosition();
+
 	for (auto& block : m_blocks)
 	{
-		if (block && block->state != BlockState::DESTROYED)
-		{
-			// バウンスアニメーション更新
-			updateBlockAnimation(*block);
+		if (!block || block->state == BlockState::DESTROYED) continue;
 
-			// 下からのヒット判定（ブロック叩き）
-			if (!block->wasHit && checkPlayerHitFromBelow(*block, player))
+		// バウンスアニメーション更新
+		updateBlockAnimation(*block);
+
+		// ★ 1ブロック基準での距離チェック
+		const double distance = block->position.distanceFrom(playerPos);
+		const double INTERACTION_RANGE = BLOCK_SIZE * 2.0; // 2ブロック分の範囲
+
+		// デバウンス処理の条件を1ブロック基準で設定
+		if (block->wasHit && distance > INTERACTION_RANGE)
+		{
+			block->wasHit = false;
+		}
+
+		// 通常のヒット判定
+		if (!block->wasHit && checkPlayerHitFromBelow(*block, player))
+		{
+			block->wasHit = true;
+
+			switch (block->type)
+			{
+			case BlockType::COIN_BLOCK:
+				handleCoinBlockHit(*block);
+				break;
+			case BlockType::BRICK_BLOCK:
+				handleBrickBlockHit(*block);
+				break;
+			}
+		}
+
+		// スライディング中の特別判定（1ブロック基準で調整）
+		if (player->isSliding() && distance < BLOCK_SIZE * 1.5 && !block->wasHit)
+		{
+			const double halfSize = BLOCK_SIZE / 2.0;
+
+			// スライディング時のプレイヤー矩形（高さを半分に）
+			const RectF slidingPlayerRect(
+				playerPos.x - halfSize,
+				playerPos.y, // 上半分のみ
+				BLOCK_SIZE,
+				halfSize
+			);
+
+			const RectF blockRect = getBlockRect(*block);
+
+			if (slidingPlayerRect.intersects(blockRect))
 			{
 				block->wasHit = true;
 
@@ -112,24 +167,11 @@ void BlockSystem::updateBlockInteractions(Player* player)
 					break;
 				}
 			}
-
-			// ヒットフラグのリセット条件
-			if (block->wasHit && !checkPlayerHitFromBelow(*block, player))
-			{
-				const Vec2 playerPos = player->getPosition();
-				const double distance = block->position.distanceFrom(playerPos);
-				if (distance > HIT_DETECTION_SIZE * 1.5)
-				{
-					block->wasHit = false;
-				}
-			}
 		}
 	}
 
-	// 破片更新
 	updateFragments();
 
-	// 非アクティブなブロックを削除
 	m_blocks.erase(
 		std::remove_if(m_blocks.begin(), m_blocks.end(),
 			[](const std::unique_ptr<Block>& block) {
@@ -138,7 +180,6 @@ void BlockSystem::updateBlockInteractions(Player* player)
 		m_blocks.end()
 	);
 
-	// 非アクティブな破片を削除
 	m_fragments.erase(
 		std::remove_if(m_fragments.begin(), m_fragments.end(),
 			[](const std::unique_ptr<BlockFragment>& fragment) {
@@ -171,6 +212,7 @@ void BlockSystem::updateBlockAnimation(Block& block)
 void BlockSystem::updateFragments()
 {
 	const double deltaTime = Scene::DeltaTime();
+	const double BLOCK_SIZE = 64.0;
 
 	for (auto& fragment : m_fragments)
 	{
@@ -180,21 +222,56 @@ void BlockSystem::updateFragments()
 		fragment->position += fragment->velocity * deltaTime;
 		fragment->velocity.y += FRAGMENT_GRAVITY * deltaTime;
 
-		// 地面との衝突処理
-		const double GROUND_LEVEL = 800.0;
+		// ★ 地面との衝突処理を1ブロック基準で設定
+		const double GROUND_LEVEL = 12.5 * BLOCK_SIZE; // 地面レベル
 		if (fragment->position.y >= GROUND_LEVEL && fragment->velocity.y > 0 && !fragment->bounced)
 		{
 			fragment->position.y = GROUND_LEVEL;
-			fragment->velocity.y *= -0.4;
-			fragment->velocity.x *= 0.8;
+			fragment->velocity.y *= -0.4;  // バウンス
+			fragment->velocity.x *= 0.8;   // 摩擦
 			fragment->bounced = true;
 			fragment->rotationSpeed *= 0.6;
 		}
 
-		fragment->velocity.x *= 0.995;
+		fragment->velocity.x *= 0.995; // 空気抵抗
 		fragment->rotation += fragment->rotationSpeed * deltaTime;
 		fragment->life -= deltaTime;
 	}
+}
+
+void BlockSystem::addBlockAtGrid(int gridX, int gridY, BlockType type)
+{
+	const double BLOCK_SIZE = 64.0;
+	const Vec2 worldPos(gridX * BLOCK_SIZE, gridY * BLOCK_SIZE);
+
+	switch (type)
+	{
+	case BlockType::COIN_BLOCK:
+		addCoinBlock(worldPos);
+		break;
+	case BlockType::BRICK_BLOCK:
+		addBrickBlock(worldPos);
+		break;
+	}
+}
+
+//指定グリッド範囲にブロックがあるかチェック
+bool BlockSystem::hasBlockInGridRange(int startX, int startY, int width, int height) const
+{
+	const double BLOCK_SIZE = 64.0;
+
+	for (int x = startX; x < startX + width; ++x)
+	{
+		for (int y = startY; y < startY + height; ++y)
+		{
+			Vec2 checkPos(x * BLOCK_SIZE + BLOCK_SIZE / 2, y * BLOCK_SIZE + BLOCK_SIZE / 2);
+			if (hasBlockAt(checkPos))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 void BlockSystem::handleCoinBlockHit(Block& block)
@@ -230,7 +307,9 @@ void BlockSystem::handleBrickBlockHit(Block& block)
 
 void BlockSystem::createBrickFragments(const Vec2& blockPos)
 {
-	// 4つの破片を作成（左上、右上、左下、右下）
+	const double BLOCK_SIZE = 64.0;
+
+	// ★ 4つの破片を1ブロック基準で作成
 	for (int i = 0; i < 4; i++)
 	{
 		// 破片の初期位置（ブロック内の4分割位置）
@@ -239,17 +318,18 @@ void BlockSystem::createBrickFragments(const Vec2& blockPos)
 			(i / 2) * (BLOCK_SIZE / 2) + (BLOCK_SIZE / 4)
 		);
 
-		// より自然な破片の飛び散り方を計算
+		// より自然な破片の飛び散り方を1ブロック基準で計算
 		double baseVelX = (i % 2 == 0) ? -1.0 : 1.0;  // 左右方向
-		double baseVelY = (i / 2 == 0) ? -1.5 : -0.8; // 上下方向（上の破片がより高く飛ぶ）
+		double baseVelY = (i / 2 == 0) ? -1.5 : -0.8; // 上下方向
 
 		// ランダム要素を追加
 		double randomFactorX = Random(-0.5, 0.5);
 		double randomFactorY = Random(0.0, 0.5);
 
+		// ★ 速度を1ブロック基準で設定
 		Vec2 velocity(
-			baseVelX * (150.0 + randomFactorX * 50.0),
-			baseVelY * 200.0 - randomFactorY * 100.0
+			baseVelX * (BLOCK_SIZE * 2.0 + randomFactorX * BLOCK_SIZE * 0.8), // 2-2.8ブロック/秒
+			baseVelY * BLOCK_SIZE * 3.0 - randomFactorY * BLOCK_SIZE * 1.5    // 1.5-4.5ブロック/秒（上向き）
 		);
 
 		// 破片を追加
@@ -266,7 +346,6 @@ void BlockSystem::createBrickFragments(const Vec2& blockPos)
 		}
 	}
 }
-
 void BlockSystem::draw(const Vec2& cameraOffset) const
 {
 	// ブロックの描画
@@ -364,44 +443,73 @@ bool BlockSystem::checkPlayerHitFromBelow(const Block& block, Player* player) co
 
 	const Vec2 playerPos = player->getPosition();
 	const Vec2 playerVel = player->getVelocity();
+	const double BLOCK_SIZE = 64.0;
 
-	// 上向きに移動している場合のみ判定
-	if (playerVel.y >= 0) return false;
+	// ★ 重要: ブロック叩き判定を厳格化
+	const double halfSize = BLOCK_SIZE / 2.0;
 
-	// X軸の重なり判定
-	const double PLAYER_WIDTH = 80.0;
-	const double COLLISION_MARGIN = 8.0;
+	// プレイヤーの衝突矩形（1ブロックサイズ）
+	const RectF playerRect(
+		playerPos.x - halfSize,
+		playerPos.y - halfSize,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
 
-	double playerLeft = playerPos.x - PLAYER_WIDTH / 2 + COLLISION_MARGIN;
-	double playerRight = playerPos.x + PLAYER_WIDTH / 2 - COLLISION_MARGIN;
-	double blockLeft = block.position.x;
-	double blockRight = block.position.x + BLOCK_SIZE;
+	// ブロックの衝突矩形
+	const RectF blockRect(block.position.x, block.position.y, BLOCK_SIZE, BLOCK_SIZE);
 
-	bool xOverlap = (playerRight > blockLeft && playerLeft < blockRight);
-	if (!xOverlap) return false;
+	// X軸の重なり判定（1ブロック基準）
+	const double playerLeft = playerRect.x;
+	const double playerRight = playerRect.x + playerRect.w;
+	const double blockLeft = blockRect.x;
+	const double blockRight = blockRect.x + blockRect.w;
 
-	// Y軸の位置関係判定
-	const double PLAYER_HEIGHT = 100.0;
-	const double HIT_TOLERANCE = 32.0;
+	// 水平方向の十分な重なりがあるかチェック（最低30%の重なりが必要）
+	const double overlapLeft = Math::Max(playerLeft, blockLeft);
+	const double overlapRight = Math::Min(playerRight, blockRight);
+	const double overlapWidth = overlapRight - overlapLeft;
+	const double minOverlap = BLOCK_SIZE * 0.3; // 30%以上の重なりが必要
 
-	double playerHead = playerPos.y - PLAYER_HEIGHT / 2;
-	double blockBottom = block.position.y + BLOCK_SIZE;
+	if (overlapWidth < minOverlap) return false;
 
-	// 現在および次フレームでの衝突をチェック
-	double nextPlayerHead = playerHead + playerVel.y * Scene::DeltaTime();
+	// Y軸の位置関係判定（より厳格に）
+	const double playerTop = playerRect.y;
+	const double playerBottom = playerRect.y + playerRect.h;
+	const double blockTop = blockRect.y;
+	const double blockBottom = blockRect.y + blockRect.h;
 
-	double currentDistance = std::abs(playerHead - blockBottom);
-	double nextDistance = std::abs(nextPlayerHead - blockBottom);
+	// ★ 修正: より厳格な下からのヒット判定
+	const double HIT_TOLERANCE = BLOCK_SIZE * 0.2; // 許容範囲を狭く
 
-	bool isHittingFromBelow = false;
+	// プレイヤーの上端がブロックの下端付近にあるかチェック
+	bool isPlayerBelow = (playerTop > blockBottom - HIT_TOLERANCE) &&
+		(playerTop < blockBottom + HIT_TOLERANCE);
 
-	if ((currentDistance <= HIT_TOLERANCE && playerHead <= blockBottom + 5.0) ||
-		(nextDistance <= HIT_TOLERANCE && nextPlayerHead <= blockBottom + 5.0))
+	// ★ 重要: 上向きの動きがあるかの厳格なチェック
+	bool isMovingUp = false;
+
+	if (player->getCurrentState() == PlayerState::Jump && playerVel.y < -50.0)
 	{
-		isHittingFromBelow = true;
+		// ジャンプ状態で十分な上向き速度がある
+		isMovingUp = true;
+	}
+	else if (player->isInJumpState() && playerVel.y < -30.0)
+	{
+		// ジャンプ状態タイマーが有効で上向き速度がある
+		isMovingUp = true;
 	}
 
-	return isHittingFromBelow;
+	// スライディング中の特別判定は距離をより厳格に
+	bool isSlidingHit = player->isSliding() &&
+		std::abs(playerTop - blockBottom) <= HIT_TOLERANCE * 0.5; // より狭い範囲
+
+	// ★ 追加条件: プレイヤーが前フレームより上に移動している
+	static Vec2 previousPlayerPos = playerPos;
+	bool isMovingUpward = (playerPos.y < previousPlayerPos.y - 1.0);
+	previousPlayerPos = playerPos;
+
+	return (isPlayerBelow && isMovingUp && isMovingUpward) || isSlidingHit;
 }
 
 // ★ レガシーメソッド（互換性のため保持、段階的削除予定）
@@ -468,8 +576,10 @@ bool BlockSystem::isBlockSolid(const Block& block) const
 
 RectF BlockSystem::getBlockRect(const Block& block) const
 {
+	// ★ 全てのブロックを64x64基準で統一
 	return RectF(block.position, BLOCK_SIZE, BLOCK_SIZE);
 }
+
 
 void BlockSystem::addCoinBlock(const Vec2& position)
 {
@@ -535,58 +645,54 @@ void BlockSystem::generateBlocksForGrassStage()
 {
 	clearAllBlocks();
 
-	// コインブロックの配置（ステージ全体に分散）
+	// Stage1: 草原ステージ - 横スクロールアクションとして楽しめる配置
+	// ブロックは離れた位置に配置し、ジャンプでのみ到達可能にする
+	// 
+	// 低い位置の基本ブロック群
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(320, 480),   // 初期エリア上空
-		Vec2(640, 420),   // 中初期エリア
-		Vec2(960, 460),   // 中間エリア
-		Vec2(1280, 400),  // 前半終了
-
-		// 中間エリア (1280-2560)
-		Vec2(1600, 440),  // 中間開始
-		Vec2(1920, 380),  // 中間1
-		Vec2(2240, 420),  // 中間2
-		Vec2(2560, 360),  // 中間終了
-
-		// 後半エリア (2560-3840)
-		Vec2(2880, 400),  // 後半開始
-		Vec2(3200, 340),  // 後半1
-		Vec2(3520, 380),  // 後半2
-		Vec2(3840, 320),  // 後半終了
-
-		// 終盤エリア (3840-5120)
-		Vec2(4160, 360),  // 終盤開始
-		Vec2(4480, 300),  // 終盤1
-		Vec2(4800, 340),  // 終盤2
-		Vec2(5120, 280)   // ゴール手前
+		Vec2(6 * 64, 10 * 64),   // X: 384, Y: 640 - 地面から少し上
+		Vec2(12 * 64, 11 * 64),  // X: 768, Y: 704 - 低い位置
+		Vec2(18 * 64, 9 * 64),   // X: 1152, Y: 576 - ジャンプ必要
+		Vec2(24 * 64, 10 * 64),  // X: 1536, Y: 640
 	};
 
-	// レンガブロックの配置（障害物として機能）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(480, 500),   // 初期障害物
-		Vec2(800, 440),   // 中初期障害物
-		Vec2(1120, 480),  // 前半障害物
-
-		// 中間エリア (1280-2560)
-		Vec2(1440, 460),  // 中間障害物1
-		Vec2(1760, 400),  // 中間障害物2
-		Vec2(2080, 440),  // 中間障害物3
-		Vec2(2400, 380),  // 中間障害物4
-
-		// 後半エリア (2560-3840)
-		Vec2(2720, 420),  // 後半障害物1
-		Vec2(3040, 360),  // 後半障害物2
-		Vec2(3360, 400),  // 後半障害物3
-		Vec2(3680, 340),  // 後半障害物4
-
-		// 終盤エリア (3840-5120)
-		Vec2(4000, 380),  // 終盤障害物1
-		Vec2(4320, 320),  // 終盤障害物2
-		Vec2(4640, 360),  // 終盤障害物3
-		Vec2(4960, 300)   // 最終障害物
+		Vec2(9 * 64, 11 * 64),   // X: 576, Y: 704
+		Vec2(15 * 64, 10 * 64),  // X: 960, Y: 640
+		Vec2(21 * 64, 8 * 64),   // X: 1344, Y: 512 - 高い位置
 	};
+
+	// === 中盤エリア (1600-3200px)
+	// より高い位置と間隔の広いブロック
+	coinBlocks.append({
+		Vec2(30 * 64, 7 * 64),   // X: 1920, Y: 448 - 高い位置
+		Vec2(36 * 64, 9 * 64),   // X: 2304, Y: 576
+		Vec2(42 * 64, 6 * 64),   // X: 2688, Y: 384 - かなり高い
+		Vec2(48 * 64, 8 * 64),   // X: 3072, Y: 512
+	});
+
+	brickBlocks.append({
+		Vec2(27 * 64, 10 * 64),  // X: 1728, Y: 640
+		Vec2(33 * 64, 8 * 64),   // X: 2112, Y: 512
+		Vec2(39 * 64, 7 * 64),   // X: 2496, Y: 448
+		Vec2(45 * 64, 9 * 64),   // X: 2880, Y: 576
+	});
+
+	// === 終盤エリア (3200-4800px)
+	// 離れた位置に配置し、正確なジャンプが必要
+	coinBlocks.append({
+		Vec2(54 * 64, 5 * 64),   // X: 3456, Y: 320 - 非常に高い
+		Vec2(60 * 64, 7 * 64),   // X: 3840, Y: 448
+		Vec2(66 * 64, 4 * 64),   // X: 4224, Y: 256 - 最高点
+		Vec2(72 * 64, 8 * 64),   // X: 4608, Y: 512
+	});
+
+	brickBlocks.append({
+		Vec2(51 * 64, 9 * 64),   // X: 3264, Y: 576
+		Vec2(57 * 64, 6 * 64),   // X: 3648, Y: 384
+		Vec2(63 * 64, 8 * 64),   // X: 4032, Y: 512
+		Vec2(69 * 64, 7 * 64),   // X: 4416, Y: 448
+	});
 
 	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
@@ -597,59 +703,65 @@ void BlockSystem::generateBlocksForGrassStage()
 		addBrickBlock(pos);
 	}
 }
-
 void BlockSystem::generateBlocksForSandStage()
 {
 	clearAllBlocks();
 
-	// 砂漠ステージの地形を避けた配置
+	// コインブロックの配置（64の倍数座標、空中プラットフォームと重複回避）
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(384, 440),   // オアシス近辺
-		Vec2(768, 380),   // 砂丘の間隔
-		Vec2(1152, 420),  // 前半砂丘
+		// 前半エリア（空中プラットフォームを避けた位置）
+		Vec2(4 * 64, 10 * 64),   // X: 256, Y: 640
+		Vec2(9 * 64, 8 * 64),    // X: 576, Y: 512
+		Vec2(14 * 64, 6 * 64),   // X: 896, Y: 384
+		Vec2(19 * 64, 9 * 64),   // X: 1216, Y: 576
 
-		// 中間エリア (1280-2560)
-		Vec2(1536, 360),  // 中間砂丘1
-		Vec2(1920, 400),  // 中間砂丘2
-		Vec2(2304, 340),  // 中間砂丘3
-		Vec2(2688, 380),  // ピラミッド横
+		// 中間エリア（空中プラットフォームを避けた位置）
+		Vec2(22 * 64, 7 * 64),   // X: 1408, Y: 448
+		Vec2(27 * 64, 5 * 64),   // X: 1728, Y: 320
+		Vec2(33 * 64, 8 * 64),   // X: 2112, Y: 512
+		Vec2(38 * 64, 6 * 64),   // X: 2432, Y: 384
 
-		// 後半エリア (2560-3840)
-		Vec2(3072, 320),  // 後半砂丘1
-		Vec2(3456, 360),  // 後半砂丘2
-		Vec2(3840, 300),  // 後半砂丘3
+		// 後半エリア（空中プラットフォームを避けた位置）
+		Vec2(41 * 64, 7 * 64),   // X: 2624, Y: 448
+		Vec2(46 * 64, 5 * 64),   // X: 2944, Y: 320
+		Vec2(50 * 64, 8 * 64),   // X: 3200, Y: 512
+		Vec2(55 * 64, 6 * 64),   // X: 3520, Y: 384
 
-		// 終盤エリア (3840-5120)
-		Vec2(4224, 340),  // 砂の谷上空
-		Vec2(4608, 280),  // 終盤砂丘1
-		Vec2(4992, 320),  // 終盤砂丘2
-		Vec2(5376, 260)   // 最終砂漠
+		// 終盤エリア（空中プラットフォームを避けた位置）
+		Vec2(60 * 64, 7 * 64),   // X: 3840, Y: 448
+		Vec2(65 * 64, 5 * 64),   // X: 4160, Y: 320
+		Vec2(69 * 64, 8 * 64),   // X: 4416, Y: 512
+		Vec2(73 * 64, 6 * 64)    // X: 4672, Y: 384
 	};
 
+	// レンガブロックの配置（64の倍数座標、他のブロックと重複回避）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(512, 460),   // 砂丘障害1
-		Vec2(896, 400),   // 砂丘障害2
-		Vec2(1280, 440),  // 前半砂丘障害
+		// 前半エリア
+		Vec2(6 * 64, 11 * 64),   // X: 384, Y: 704
+		Vec2(11 * 64, 9 * 64),   // X: 704, Y: 576
+		Vec2(16 * 64, 7 * 64),   // X: 1024, Y: 448
+		Vec2(20 * 64, 10 * 64),  // X: 1280, Y: 640
 
-		// 中間エリア (1280-2560)
-		Vec2(1664, 380),  // 中間砂丘障害1
-		Vec2(2048, 420),  // 中間砂丘障害2
-		Vec2(2432, 360),  // ピラミッド近辺
+		// 中間エリア
+		Vec2(24 * 64, 8 * 64),   // X: 1536, Y: 512
+		Vec2(29 * 64, 6 * 64),   // X: 1856, Y: 384
+		Vec2(35 * 64, 9 * 64),   // X: 2240, Y: 576
+		Vec2(39 * 64, 7 * 64),   // X: 2496, Y: 448
 
-		// 後半エリア (2560-3840)
-		Vec2(2816, 400),  // 後半砂丘障害1
-		Vec2(3200, 340),  // 後半砂丘障害2
-		Vec2(3584, 380),  // 砂の道
+		// 後半エリア
+		Vec2(43 * 64, 8 * 64),   // X: 2752, Y: 512
+		Vec2(47 * 64, 6 * 64),   // X: 3008, Y: 384
+		Vec2(52 * 64, 9 * 64),   // X: 3328, Y: 576
+		Vec2(57 * 64, 7 * 64),   // X: 3648, Y: 448
 
-		// 終盤エリア (3840-5120)
-		Vec2(3968, 360),  // 終盤砂丘障害1
-		Vec2(4352, 300),  // 終盤砂丘障害2
-		Vec2(4736, 340),  // 砂丘間
-		Vec2(5120, 280)   // 最終砂漠障害
+		// 終盤エリア
+		Vec2(61 * 64, 8 * 64),   // X: 3904, Y: 512
+		Vec2(66 * 64, 6 * 64),   // X: 4224, Y: 384
+		Vec2(70 * 64, 9 * 64),   // X: 4480, Y: 576
+		Vec2(74 * 64, 7 * 64)    // X: 4736, Y: 448
 	};
 
+	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
 		addCoinBlock(pos);
 	}
@@ -663,53 +775,61 @@ void BlockSystem::generateBlocksForPurpleStage()
 {
 	clearAllBlocks();
 
-	// 魔法ステージの浮遊島を避けた魔法的配置
+	// コインブロックの配置（64の倍数座標、空中プラットフォームと重複回避）
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(448, 380),   // 魔法の島近辺
-		Vec2(896, 320),   // 魔法の空上空
-		Vec2(1344, 360),  // 前半魔法エリア
+		// 前半エリア（空中プラットフォームを避けた位置）
+		Vec2(3 * 64, 10 * 64),   // X: 192, Y: 640
+		Vec2(8 * 64, 8 * 64),    // X: 512, Y: 512
+		Vec2(13 * 64, 6 * 64),   // X: 832, Y: 384
+		Vec2(17 * 64, 9 * 64),   // X: 1088, Y: 576
 
-		// 中間エリア (1280-2560)
-		Vec2(1792, 300),  // 中間魔法エリア1
-		Vec2(2240, 340),  // 中間魔法エリア2
-		Vec2(2688, 280),  // 中間魔法エリア3
+		// 中間エリア（空中プラットフォームを避けた位置）
+		Vec2(21 * 64, 7 * 64),   // X: 1344, Y: 448
+		Vec2(26 * 64, 5 * 64),   // X: 1664, Y: 320
+		Vec2(32 * 64, 8 * 64),   // X: 2048, Y: 512
+		Vec2(36 * 64, 6 * 64),   // X: 2304, Y: 384
 
-		// 後半エリア (2560-3840)
-		Vec2(3136, 320),  // 後半魔法エリア1
-		Vec2(3584, 260),  // 高い魔法島上空
-		Vec2(4032, 300),  // 後半魔法エリア2
+		// 後半エリア（空中プラットフォームを避けた位置）
+		Vec2(40 * 64, 7 * 64),   // X: 2560, Y: 448
+		Vec2(45 * 64, 5 * 64),   // X: 2880, Y: 320
+		Vec2(48 * 64, 8 * 64),   // X: 3072, Y: 512
+		Vec2(54 * 64, 6 * 64),   // X: 3456, Y: 384
 
-		// 終盤エリア (3840-5120)
-		Vec2(4480, 240),  // 魔法の道上空
-		Vec2(4928, 280),  // 終盤魔法エリア1
-		Vec2(5376, 220),  // 最終魔法エリア
-		Vec2(5824, 260)   // ゴール前魔法空間
+		// 終盤エリア（空中プラットフォームを避けた位置）
+		Vec2(59 * 64, 7 * 64),   // X: 3776, Y: 448
+		Vec2(63 * 64, 5 * 64),   // X: 4032, Y: 320
+		Vec2(67 * 64, 8 * 64),   // X: 4288, Y: 512
+		Vec2(71 * 64, 6 * 64)    // X: 4544, Y: 384
 	};
 
+	// レンガブロックの配置（64の倍数座標、他のブロックと重複回避）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(576, 400),   // 魔法障害1
-		Vec2(1024, 340),  // 魔法障害2
-		Vec2(1472, 380),  // 前半魔法障害
+		// 前半エリア
+		Vec2(5 * 64, 11 * 64),   // X: 320, Y: 704
+		Vec2(10 * 64, 9 * 64),   // X: 640, Y: 576
+		Vec2(15 * 64, 7 * 64),   // X: 960, Y: 448
+		Vec2(19 * 64, 10 * 64),  // X: 1216, Y: 640
 
-		// 中間エリア (1280-2560)
-		Vec2(1920, 320),  // 中間魔法障害1
-		Vec2(2368, 360),  // 中間魔法障害2
-		Vec2(2816, 300),  // 魔法の城砦
+		// 中間エリア
+		Vec2(23 * 64, 8 * 64),   // X: 1472, Y: 512
+		Vec2(28 * 64, 6 * 64),   // X: 1792, Y: 384
+		Vec2(34 * 64, 9 * 64),   // X: 2176, Y: 576
+		Vec2(38 * 64, 7 * 64),   // X: 2432, Y: 448
 
-		// 後半エリア (2560-3840)
-		Vec2(3264, 340),  // 後半魔法障害1
-		Vec2(3712, 280),  // 高度魔法障害
-		Vec2(4160, 320),  // 後半魔法障害2
+		// 後半エリア
+		Vec2(42 * 64, 8 * 64),   // X: 2688, Y: 512
+		Vec2(46 * 64, 6 * 64),   // X: 2944, Y: 384
+		Vec2(51 * 64, 9 * 64),   // X: 3264, Y: 576
+		Vec2(56 * 64, 7 * 64),   // X: 3584, Y: 448
 
-		// 終盤エリア (3840-5120)
-		Vec2(4608, 260),  // 魔法の道障害
-		Vec2(5056, 300),  // 終盤魔法障害
-		Vec2(5504, 240),  // 最終魔法城砦
-		Vec2(5952, 280)   // 最終魔法障害
+		// 終盤エリア
+		Vec2(62 * 64, 8 * 64),   // X: 3968, Y: 512
+		Vec2(65 * 64, 6 * 64),   // X: 4160, Y: 384
+		Vec2(68 * 64, 9 * 64),   // X: 4352, Y: 576
+		Vec2(72 * 64, 7 * 64)    // X: 4608, Y: 448
 	};
 
+	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
 		addCoinBlock(pos);
 	}
@@ -723,54 +843,61 @@ void BlockSystem::generateBlocksForSnowStage()
 {
 	clearAllBlocks();
 
-	// 雪山の地形を避けた配置
+	// コインブロックの配置（64の倍数座標、空中プラットフォームと重複回避）
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(384, 420),   // 山麓エリア
-		Vec2(768, 360),   // 雪の足場近辺
-		Vec2(1152, 400),  // 前半雪原
+		// 前半エリア（空中プラットフォームを避けた位置）
+		Vec2(7 * 64, 10 * 64),   // X: 448, Y: 640
+		Vec2(11 * 64, 8 * 64),   // X: 704, Y: 512
+		Vec2(15 * 64, 6 * 64),   // X: 960, Y: 384
+		Vec2(21 * 64, 9 * 64),   // X: 1344, Y: 576
 
-		// 中間エリア (1280-2560)
-		Vec2(1536, 340),  // 中間雪原1
-		Vec2(1920, 380),  // 中間雪原2
-		Vec2(2304, 320),  // 氷の足場上空
-		Vec2(2688, 360),  // 山頂エリア
+		// 中間エリア（空中プラットフォームを避けた位置）
+		Vec2(24 * 64, 7 * 64),   // X: 1536, Y: 448
+		Vec2(29 * 64, 5 * 64),   // X: 1856, Y: 320
+		Vec2(34 * 64, 8 * 64),   // X: 2176, Y: 512
+		Vec2(39 * 64, 6 * 64),   // X: 2496, Y: 384
 
-		// 後半エリア (2560-3840)
-		Vec2(3072, 300),  // 後半山頂1
-		Vec2(3456, 340),  // 後半山頂2
-		Vec2(3840, 280),  // 氷河エリア
+		// 後半エリア（空中プラットフォームを避けた位置）
+		Vec2(42 * 64, 7 * 64),   // X: 2688, Y: 448
+		Vec2(47 * 64, 5 * 64),   // X: 3008, Y: 320
+		Vec2(51 * 64, 8 * 64),   // X: 3264, Y: 512
+		Vec2(56 * 64, 6 * 64),   // X: 3584, Y: 384
 
-		// 終盤エリア (3840-5120)
-		Vec2(4224, 320),  // 終盤氷河1
-		Vec2(4608, 260),  // 雪原エリア
-		Vec2(4992, 300),  // 終盤雪原
-		Vec2(5376, 240)   // 最終山頂
+		// 終盤エリア（空中プラットフォームを避けた位置）
+		Vec2(61 * 64, 7 * 64),   // X: 3904, Y: 448
+		Vec2(66 * 64, 5 * 64),   // X: 4224, Y: 320
+		Vec2(70 * 64, 8 * 64),   // X: 4480, Y: 512
+		Vec2(75 * 64, 6 * 64)    // X: 4800, Y: 384
 	};
 
+	// レンガブロックの配置（64の倍数座標、他のブロックと重複回避）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(512, 440),   // 雪山障害1
-		Vec2(896, 380),   // 雪山障害2
-		Vec2(1280, 420),  // 前半氷の道
+		// 前半エリア
+		Vec2(8 * 64, 11 * 64),   // X: 512, Y: 704
+		Vec2(13 * 64, 9 * 64),   // X: 832, Y: 576
+		Vec2(17 * 64, 7 * 64),   // X: 1088, Y: 448
+		Vec2(22 * 64, 10 * 64),  // X: 1408, Y: 640
 
-		// 中間エリア (1280-2560)
-		Vec2(1664, 360),  // 中間氷の道1
-		Vec2(2048, 400),  // 中間氷の道2
-		Vec2(2432, 340),  // 氷の道
+		// 中間エリア
+		Vec2(26 * 64, 8 * 64),   // X: 1664, Y: 512
+		Vec2(30 * 64, 6 * 64),   // X: 1920, Y: 384
+		Vec2(36 * 64, 9 * 64),   // X: 2304, Y: 576
+		Vec2(40 * 64, 7 * 64),   // X: 2560, Y: 448
 
-		// 後半エリア (2560-3840)
-		Vec2(2816, 380),  // 後半氷の道1
-		Vec2(3200, 320),  // 雪だまり近辺
-		Vec2(3584, 360),  // 後半氷の道2
+		// 後半エリア
+		Vec2(45 * 64, 8 * 64),   // X: 2880, Y: 512
+		Vec2(48 * 64, 6 * 64),   // X: 3072, Y: 384
+		Vec2(54 * 64, 9 * 64),   // X: 3456, Y: 576
+		Vec2(58 * 64, 7 * 64),   // X: 3712, Y: 448
 
-		// 終盤エリア (3840-5120)
-		Vec2(3968, 300),  // 終盤雪山1
-		Vec2(4352, 340),  // 雪原障害
-		Vec2(4736, 280),  // 終盤雪山2
-		Vec2(5120, 320)   // 最終雪原障害
+		// 終盤エリア
+		Vec2(63 * 64, 8 * 64),   // X: 4032, Y: 512
+		Vec2(67 * 64, 6 * 64),   // X: 4288, Y: 384
+		Vec2(72 * 64, 9 * 64),   // X: 4608, Y: 576
+		Vec2(76 * 64, 7 * 64)    // X: 4864, Y: 448
 	};
 
+	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
 		addCoinBlock(pos);
 	}
@@ -784,58 +911,61 @@ void BlockSystem::generateBlocksForStoneStage()
 {
 	clearAllBlocks();
 
-	// 石ステージの地形を避けた配置
+	// コインブロックの配置（64の倍数座標、空中プラットフォームと重複回避）
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(320, 460),   // 石の間隔
-		Vec2(640, 400),   // 岩場の上空
-		Vec2(960, 440),   // 前半岩場
-		Vec2(1280, 380),  // 前半石の道
+		// 前半エリア（空中プラットフォームを避けた位置）  
+		Vec2(4 * 64, 10 * 64),   // X: 256, Y: 640
+		Vec2(10 * 64, 8 * 64),   // X: 640, Y: 512
+		Vec2(14 * 64, 6 * 64),   // X: 896, Y: 384
+		Vec2(20 * 64, 9 * 64),   // X: 1280, Y: 576
 
-		// 中間エリア (1280-2560)
-		Vec2(1600, 420),  // 中間岩場1
-		Vec2(1920, 360),  // 中間岩場2
-		Vec2(2240, 400),  // 石の道の上
-		Vec2(2560, 340),  // 中間石の道
+		// 中間エリア（空中プラットフォームを避けた位置）
+		Vec2(23 * 64, 7 * 64),   // X: 1472, Y: 448
+		Vec2(28 * 64, 5 * 64),   // X: 1792, Y: 320
+		Vec2(33 * 64, 8 * 64),   // X: 2112, Y: 512
+		Vec2(38 * 64, 6 * 64),   // X: 2432, Y: 384
 
-		// 後半エリア (2560-3840)
-		Vec2(2880, 380),  // 後半岩場1
-		Vec2(3200, 320),  // 高い岩場の上
-		Vec2(3520, 360),  // 後半岩場2
-		Vec2(3840, 300),  // 石の谷の上
+		// 後半エリア（空中プラットフォームを避けた位置）
+		Vec2(41 * 64, 7 * 64),   // X: 2624, Y: 448
+		Vec2(46 * 64, 5 * 64),   // X: 2944, Y: 320
+		Vec2(50 * 64, 8 * 64),   // X: 3200, Y: 512
+		Vec2(55 * 64, 6 * 64),   // X: 3520, Y: 384
 
-		// 終盤エリア (3840-5120)
-		Vec2(4160, 340),  // 終盤岩場1
-		Vec2(4480, 280),  // 終盤の岩場
-		Vec2(4800, 320),  // 終盤岩場2
-		Vec2(5120, 260)   // 最終岩場
+		// 終盤エリア（空中プラットフォームを避けた位置）
+		Vec2(60 * 64, 7 * 64),   // X: 3840, Y: 448
+		Vec2(65 * 64, 5 * 64),   // X: 4160, Y: 320
+		Vec2(69 * 64, 8 * 64),   // X: 4416, Y: 512
+		Vec2(73 * 64, 6 * 64)    // X: 4672, Y: 384
 	};
 
+	// レンガブロックの配置（64の倍数座標、他のブロックと重複回避）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(448, 480),   // 初期岩場
-		Vec2(768, 420),   // 前半岩場障害
-		Vec2(1088, 460),  // 前半石の道障害
+		// 前半エリア
+		Vec2(7 * 64, 11 * 64),   // X: 448, Y: 704
+		Vec2(12 * 64, 9 * 64),   // X: 768, Y: 576
+		Vec2(16 * 64, 7 * 64),   // X: 1024, Y: 448
+		Vec2(21 * 64, 10 * 64),  // X: 1344, Y: 640
 
-		// 中間エリア (1280-2560)
-		Vec2(1408, 440),  // 中間岩場障害1
-		Vec2(1728, 380),  // 中間岩場障害2
-		Vec2(2048, 420),  // 中間岩場
-		Vec2(2368, 360),  // 石の道障害
+		// 中間エリア
+		Vec2(25 * 64, 8 * 64),   // X: 1600, Y: 512
+		Vec2(30 * 64, 6 * 64),   // X: 1920, Y: 384
+		Vec2(35 * 64, 9 * 64),   // X: 2240, Y: 576
+		Vec2(39 * 64, 7 * 64),   // X: 2496, Y: 448
 
-		// 後半エリア (2560-3840)
-		Vec2(2688, 400),  // 後半岩場障害1
-		Vec2(3008, 340),  // 高岩場
-		Vec2(3328, 380),  // 後半岩場障害2
-		Vec2(3648, 320),  // 石の道障害
+		// 後半エリア
+		Vec2(43 * 64, 8 * 64),   // X: 2752, Y: 512
+		Vec2(47 * 64, 6 * 64),   // X: 3008, Y: 384
+		Vec2(52 * 64, 9 * 64),   // X: 3328, Y: 576
+		Vec2(57 * 64, 7 * 64),   // X: 3648, Y: 448
 
-		// 終盤エリア (3840-5120)
-		Vec2(3968, 360),  // 終盤岩場障害1
-		Vec2(4288, 300),  // 終盤岩場
-		Vec2(4608, 340),  // 終盤岩場障害2
-		Vec2(4928, 280)   // 最終岩場障害
+		// 終盤エリア
+		Vec2(62 * 64, 8 * 64),   // X: 3968, Y: 512
+		Vec2(66 * 64, 6 * 64),   // X: 4224, Y: 384
+		Vec2(71 * 64, 9 * 64),   // X: 4544, Y: 576
+		Vec2(74 * 64, 7 * 64)    // X: 4736, Y: 448
 	};
 
+	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
 		addCoinBlock(pos);
 	}
@@ -849,54 +979,61 @@ void BlockSystem::generateBlocksForDirtStage()
 {
 	clearAllBlocks();
 
-	// 地下ステージの洞窟を避けた配置
+	// コインブロックの配置（64の倍数座標、空中プラットフォームと重複回避）
 	Array<Vec2> coinBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(384, 440),   // 洞窟入口
-		Vec2(768, 380),   // 地下通路間隔
-		Vec2(1152, 420),  // 前半地下通路
+		// 前半エリア（空中プラットフォームを避けた位置）
+		Vec2(3 * 64, 10 * 64),   // X: 192, Y: 640
+		Vec2(9 * 64, 8 * 64),    // X: 576, Y: 512
+		Vec2(13 * 64, 6 * 64),   // X: 832, Y: 384
+		Vec2(19 * 64, 9 * 64),   // X: 1216, Y: 576
 
-		// 中間エリア (1280-2560)
-		Vec2(1536, 360),  // 中間地下通路1
-		Vec2(1920, 400),  // 中間地下通路2
-		Vec2(2304, 340),  // 深い洞窟
-		Vec2(2688, 380),  // 中間深洞窟
+		// 中間エリア（空中プラットフォームを避けた位置）
+		Vec2(22 * 64, 7 * 64),   // X: 1408, Y: 448
+		Vec2(27 * 64, 5 * 64),   // X: 1728, Y: 320
+		Vec2(32 * 64, 8 * 64),   // X: 2048, Y: 512
+		Vec2(36 * 64, 6 * 64),   // X: 2304, Y: 384
 
-		// 後半エリア (2560-3840)
-		Vec2(3072, 320),  // 後半深洞窟1
-		Vec2(3456, 360),  // 地下の隠し部屋
-		Vec2(3840, 300),  // 後半深洞窟2
+		// 後半エリア（空中プラットフォームを避けた位置）
+		Vec2(40 * 64, 7 * 64),   // X: 2560, Y: 448
+		Vec2(45 * 64, 5 * 64),   // X: 2880, Y: 320
+		Vec2(48 * 64, 8 * 64),   // X: 3072, Y: 512
+		Vec2(54 * 64, 6 * 64),   // X: 3456, Y: 384
 
-		// 終盤エリア (3840-5120)
-		Vec2(4224, 340),  // 終盤隠し部屋1
-		Vec2(4608, 280),  // 洞窟の奥
-		Vec2(4992, 320),  // 終盤隠し部屋2
-		Vec2(5376, 260)   // 地下の宝
+		// 終盤エリア（空中プラットフォームを避けた位置）
+		Vec2(59 * 64, 7 * 64),   // X: 3776, Y: 448
+		Vec2(63 * 64, 5 * 64),   // X: 4032, Y: 320
+		Vec2(67 * 64, 8 * 64),   // X: 4288, Y: 512
+		Vec2(71 * 64, 6 * 64)    // X: 4544, Y: 384
 	};
 
+	// レンガブロックの配置（64の倍数座標、他のブロックと重複回避）
 	Array<Vec2> brickBlocks = {
-		// 前半エリア (0-1280)
-		Vec2(512, 460),   // 洞窟障害1
-		Vec2(896, 400),   // 地下通路障害
-		Vec2(1280, 440),  // 前半洞窟障害
+		// 前半エリア
+		Vec2(5 * 64, 11 * 64),   // X: 320, Y: 704
+		Vec2(11 * 64, 9 * 64),   // X: 704, Y: 576
+		Vec2(15 * 64, 7 * 64),   // X: 960, Y: 448
+		Vec2(20 * 64, 10 * 64),  // X: 1280, Y: 640
 
-		// 中間エリア (1280-2560)
-		Vec2(1664, 380),  // 中間地下通路障害1
-		Vec2(2048, 420),  // 中間地下通路障害2
-		Vec2(2432, 360),  // 地下通路障害
+		// 中間エリア
+		Vec2(24 * 64, 8 * 64),   // X: 1536, Y: 512
+		Vec2(29 * 64, 6 * 64),   // X: 1856, Y: 384
+		Vec2(34 * 64, 9 * 64),   // X: 2176, Y: 576
+		Vec2(38 * 64, 7 * 64),   // X: 2432, Y: 448
 
-		// 後半エリア (2560-3840)
-		Vec2(2816, 400),  // 後半地下通路障害1
-		Vec2(3200, 340),  // 深洞窟障害
-		Vec2(3584, 380),  // 後半地下通路障害2
+		// 後半エリア
+		Vec2(42 * 64, 8 * 64),   // X: 2688, Y: 512
+		Vec2(46 * 64, 6 * 64),   // X: 2944, Y: 384
+		Vec2(51 * 64, 9 * 64),   // X: 3264, Y: 576
+		Vec2(56 * 64, 7 * 64),   // X: 3584, Y: 448
 
-		// 終盤エリア (3840-5120)
-		Vec2(3968, 320),  // 終盤洞窟障害1
-		Vec2(4352, 360),  // 隠し部屋障害
-		Vec2(4736, 300),  // 洞窟奥障害
-		Vec2(5120, 340)   // 最終地下障害
+		// 終盤エリア
+		Vec2(61 * 64, 8 * 64),   // X: 3904, Y: 512
+		Vec2(65 * 64, 6 * 64),   // X: 4160, Y: 384
+		Vec2(68 * 64, 9 * 64),   // X: 4352, Y: 576
+		Vec2(72 * 64, 7 * 64)    // X: 4608, Y: 448
 	};
 
+	// ブロックを配置
 	for (const auto& pos : coinBlocks) {
 		addCoinBlock(pos);
 	}

@@ -105,8 +105,18 @@ public:
 	void setDirection(EnemyDirection direction) { m_direction = direction; }
 	void setGrounded(bool grounded) { m_isGrounded = grounded; }
 	virtual String getStateString() const;
-	virtual String getTypeString() const;
-	virtual Texture getCurrentTexture() const = 0;
+
+	//種類と見た目のキー
+	virtual String typeKey() const noexcept = 0;
+	virtual String currentVisualKey() const = 0;
+
+	//互換
+	virtual String getTypeString() const { return typeKey(); }
+
+	//互換
+	virtual Texture getCurrentTexture() const {
+		return m_textures.at(currentVisualKey());
+	}
 
 	// 特殊能力チェック（新敵用）
 	virtual bool isDangerous() const { return m_isActive && m_isAlive; }

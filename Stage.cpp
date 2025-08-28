@@ -59,11 +59,11 @@ void Stage::init(StageNumber stageNumber)
 
 void Stage::update(const Vec2& playerPosition)
 {
-	// カメラのスクロール処理
+	// ★ カメラのスクロール処理を1ブロック基準で調整
 	const double screenCenterX = Scene::Width() / 2.0;
 	const double targetCameraX = playerPosition.x - screenCenterX;
 
-	// ステージの境界でクランプ
+	// ステージの境界でクランプ（1ブロック基準）
 	const double maxCameraX = m_stagePixelWidth - Scene::Width();
 
 	if (m_stagePixelWidth > Scene::Width())
@@ -75,6 +75,7 @@ void Stage::update(const Vec2& playerPosition)
 		m_cameraOffset.x = 0.0;
 	}
 
+	// Y軸のカメラ追従は無効（横スクロールのみ）
 	m_cameraOffset.y = 0.0;
 
 	// ゴールアニメーションタイマー更新
@@ -170,57 +171,297 @@ bool Stage::checkGoalCollision(const RectF& playerRect) const
 {
 	if (!m_hasGoal) return false;
 
-	// ゴールフラグの当たり判定矩形
-	const RectF goalRect(m_goalPosition.x - 32, m_goalPosition.y - 32, 64, 64);
+	// ★ ゴールフラグの当たり判定を1ブロック基準で設定
+	const RectF goalRect(
+		m_goalPosition.x - BLOCK_SIZE / 2,
+		m_goalPosition.y - BLOCK_SIZE / 2,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
 
 	return playerRect.intersects(goalRect);
 }
-
 void Stage::generateStageLayout()
 {
 	m_blocks.clear();
 
-	// 全ステージ共通の統一レイアウトを使用
-	// テクスチャのみがステージごとに変わる
-	generateUnifiedStageLayout();
+	// ステージ番号に応じて個別のレイアウトを生成
+	switch (m_stageNumber)
+	{
+	case StageNumber::Stage1:
+		generateGrassStageLayout();
+		break;
+	case StageNumber::Stage2:
+		generateSandStageLayout();
+		break;
+	case StageNumber::Stage3:
+		generatePurpleStageLayout();
+		break;
+	case StageNumber::Stage4:
+		generateSnowStageLayout();
+		break;
+	case StageNumber::Stage5:
+		generateStoneStageLayout();
+		break;
+	case StageNumber::Stage6:
+		generateDirtStageLayout();
+		break;
+	default:
+		generateGrassStageLayout(); // フォールバック
+		break;
+	}
 }
 
-void Stage::generateUnifiedStageLayout()
+void Stage::generateGrassStageLayout()
 {
-	// ★ 修正: 地面をより適切な位置に配置
-	// Scene::Height() = 600の場合、地面は下から4ブロック分（約256ピクセル）上に配置
-	const int groundLevel = STAGE_HEIGHT - 4; // 約13 (17-4)、ピクセル座標では832
+	// Stage1: 草原ステージ - 横スクロールアクションの基本を学ぶ
+	const int groundLevel = 13; // Y座標832 (13 * 64)
 
 	// 1. メインの地面（画面下部）
 	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
 
-	// 2. 左側エリアの空中プラットフォーム
-	createAirPlatform(8, groundLevel - 4, 4);   // 地面から4ブロック上
-	createAirPlatform(5, groundLevel - 7, 3);   // 地面から7ブロック上
+	// 2. 空中プラットフォーム配置
+	// ブロックシステムとの重複を完全回避、ジャンプアクションを楽しめる配置
 
-	// 3. 中央エリアの空中プラットフォーム群
-	createAirPlatform(20, groundLevel - 3, 6);  // 地面から3ブロック上
-	createAirPlatform(18, groundLevel - 6, 3);  // 地面から6ブロック上
-	createAirPlatform(23, groundLevel - 9, 2);  // 地面から9ブロック上
+	// === チュートリアルエリア (0-1000px) ===
+	// 基本的なジャンプを学ぶ
+	createAirPlatform(5, 11, 3);   // X: 320, Y: 704 - 低い安全な足場
+	createAirPlatform(10, 10, 2);  // X: 640, Y: 640 - 少し高い
 
-	// 4. 中央-右側の段階的空中プラットフォーム
-	createAirPlatform(35, groundLevel - 2, 4);  // 地面から2ブロック上
-	createAirPlatform(42, groundLevel - 4, 3);  // 地面から4ブロック上
-	createAirPlatform(48, groundLevel - 6, 2);  // 地面から6ブロック上
+	// === 第1エリア (1000-2000px) - 段階的な上昇 ===
+	createAirPlatform(16, 11, 2);  // X: 1024, Y: 704
+	createAirPlatform(20, 9, 3);   // X: 1280, Y: 576 - ジャンプ必要
+	createAirPlatform(25, 8, 2);   // X: 1600, Y: 512
+	createAirPlatform(29, 7, 2);   // X: 1856, Y: 448 - 高い位置
 
-	// 5. 右側エリアの空中プラットフォーム群
-	createAirPlatform(58, groundLevel - 3, 5);  // 地面から3ブロック上
-	createAirPlatform(55, groundLevel - 7, 3);  // 地面から7ブロック上
-	createAirPlatform(59, groundLevel - 10, 2); // 地面から10ブロック上
+	// === 第2エリア (2000-3000px) - 谷間と山 ===
+	createAirPlatform(34, 10, 3);  // X: 2176, Y: 640 - 低い位置に戻る
+	createAirPlatform(39, 6, 2);   // X: 2496, Y: 384 - 大ジャンプ必要
+	createAirPlatform(43, 8, 2);   // X: 2752, Y: 512 - 中間高度
+	createAirPlatform(47, 5, 1);   // X: 3008, Y: 320 - 狭い高所
 
-	// 6. 最終エリアの空中プラットフォーム
-	createAirPlatform(70, groundLevel - 5, 4);  // 地面から5ブロック上
-	createAirPlatform(68, groundLevel - 8, 2);  // 地面から8ブロック上
+	// === 第3エリア (3000-4000px) - リズミカルな配置 ===
+	createAirPlatform(51, 9, 2);   // X: 3264, Y: 576
+	createAirPlatform(55, 7, 2);   // X: 3520, Y: 448
+	createAirPlatform(58, 10, 3);  // X: 3712, Y: 640 - 安全地帯
+	createAirPlatform(62, 6, 2);   // X: 3968, Y: 384
 
-	// 7. ゴールフラグを地面上に配置
-	const Vec2 goalPosition = Vec2((STAGE_WIDTH - 5) * BLOCK_SIZE, groundLevel * BLOCK_SIZE - 32);
+	// === 最終エリア (4000-5000px) - 総合チャレンジ ===
+	createAirPlatform(66, 8, 2);   // X: 4224, Y: 512
+	createAirPlatform(69, 4, 1);   // X: 4416, Y: 256 - 最高点
+	createAirPlatform(72, 7, 2);   // X: 4608, Y: 448
+	createAirPlatform(75, 10, 3);  // X: 4800, Y: 640 - ゴール前安全地帯
+
+	// ゴールフラグ（最終プラットフォーム上）
+	const Vec2 goalPosition = Vec2(77 * BLOCK_SIZE, 10 * BLOCK_SIZE - 32);
 	addGoalFlag(goalPosition);
 }
+
+void Stage::generateSandStageLayout()
+{
+	// Stage2: 砂漠ステージ - 砂丘の起伏と長距離ジャンプ
+	const int groundLevel = 13;
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
+
+	// === オアシスエリア (0-1000px) ===
+	createAirPlatform(4, 11, 4);   // X: 256, Y: 704 - 大きな砂丘
+	createAirPlatform(11, 10, 2);  // X: 704, Y: 640
+
+	// === 砂丘エリア (1000-2000px) - 起伏のある地形 ===
+	createAirPlatform(17, 12, 3);  // X: 1088, Y: 768 - 地面近く
+	createAirPlatform(22, 9, 2);   // X: 1408, Y: 576
+	createAirPlatform(26, 7, 2);   // X: 1664, Y: 448
+	createAirPlatform(30, 8, 3);   // X: 1920, Y: 512
+
+	// === ピラミッドエリア (2000-3000px) - 階段状の配置 ===
+	createAirPlatform(35, 11, 2);  // X: 2240, Y: 704 - 基底
+	createAirPlatform(38, 9, 2);   // X: 2432, Y: 576
+	createAirPlatform(41, 7, 2);   // X: 2624, Y: 448
+	createAirPlatform(44, 5, 2);   // X: 2816, Y: 320 - 頂上
+	createAirPlatform(47, 6, 2);   // X: 3008, Y: 384 - 下降開始
+
+	// === 流砂エリア (3000-4000px) - 不規則な配置 ===
+	createAirPlatform(52, 10, 2);  // X: 3328, Y: 640
+	createAirPlatform(56, 8, 1);   // X: 3584, Y: 512 - 狭い足場
+	createAirPlatform(59, 11, 2);  // X: 3776, Y: 704
+	createAirPlatform(63, 6, 2);   // X: 4032, Y: 384
+
+	// === 砂嵐エリア (4000-5000px) - 視界不良を想定した配置 ===
+	createAirPlatform(67, 9, 2);   // X: 4288, Y: 576
+	createAirPlatform(70, 7, 1);   // X: 4480, Y: 448 - 小さい足場
+	createAirPlatform(73, 10, 2);  // X: 4672, Y: 640
+	createAirPlatform(76, 8, 3);   // X: 4864, Y: 512 - ゴール前
+
+	const Vec2 goalPosition = Vec2(79 * BLOCK_SIZE, 8 * BLOCK_SIZE - 32);
+	addGoalFlag(goalPosition);
+}
+
+void Stage::generatePurpleStageLayout()
+{
+	// Stage3: 魔法の森 - 浮遊する魔法の足場、垂直移動重視
+	const int groundLevel = 13;
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
+
+	// === 森の入口 (0-1000px) ===
+	createAirPlatform(3, 10, 2);   // X: 192, Y: 640
+	createAirPlatform(7, 8, 2);    // X: 448, Y: 512
+	createAirPlatform(11, 6, 2);   // X: 704, Y: 384 - 上昇開始
+
+	// === 魔法の木 (1000-2000px) - 螺旋上昇 ===
+	createAirPlatform(15, 11, 2);  // X: 960, Y: 704
+	createAirPlatform(19, 8, 2);   // X: 1216, Y: 512
+	createAirPlatform(23, 5, 2);   // X: 1472, Y: 320 - 高い
+	createAirPlatform(27, 7, 2);   // X: 1728, Y: 448
+	createAirPlatform(31, 4, 1);   // X: 1984, Y: 256 - 最高点
+
+	// === 浮遊島エリア (2000-3000px) - 離れた足場 ===
+	createAirPlatform(36, 9, 2);   // X: 2304, Y: 576
+	createAirPlatform(40, 6, 1);   // X: 2560, Y: 384 - 小さい
+	createAirPlatform(44, 8, 2);   // X: 2816, Y: 512
+	createAirPlatform(48, 3, 2);   // X: 3072, Y: 192 - 非常に高い
+
+	// === 古代遺跡エリア (3000-4000px) - 複雑な配置 ===
+	createAirPlatform(53, 10, 3);  // X: 3392, Y: 640
+	createAirPlatform(57, 7, 2);   // X: 3648, Y: 448
+	createAirPlatform(60, 5, 1);   // X: 3840, Y: 320
+	createAirPlatform(63, 9, 2);   // X: 4032, Y: 576
+
+	// === 魔法の城 (4000-5000px) - 城壁を模した配置 ===
+	createAirPlatform(67, 11, 2);  // X: 4288, Y: 704 - 城門
+	createAirPlatform(70, 8, 2);   // X: 4480, Y: 512
+	createAirPlatform(73, 6, 2);   // X: 4672, Y: 384 - 城壁上
+	createAirPlatform(76, 9, 3);   // X: 4864, Y: 576 - 玉座の間
+
+	const Vec2 goalPosition = Vec2(79 * BLOCK_SIZE, 9 * BLOCK_SIZE - 32);
+	addGoalFlag(goalPosition);
+}
+
+void Stage::generateSnowStageLayout()
+{
+	// Stage4: 雪山ステージ - 滑りやすい足場と急峻な地形
+	const int groundLevel = 13;
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
+
+	// === 山麓 (0-1000px) - 緩やかな上り ===
+	createAirPlatform(6, 11, 3);   // X: 384, Y: 704
+	createAirPlatform(11, 10, 2);  // X: 704, Y: 640
+	createAirPlatform(15, 9, 2);   // X: 960, Y: 576
+
+	// === 氷河エリア (1000-2000px) - 滑る足場 ===
+	createAirPlatform(19, 11, 4);  // X: 1216, Y: 704 - 長い氷
+	createAirPlatform(25, 8, 2);   // X: 1600, Y: 512
+	createAirPlatform(29, 6, 1);   // X: 1856, Y: 384 - 小さい氷
+
+	// === 登山道 (2000-3000px) - ジグザグ上昇 ===
+	createAirPlatform(33, 10, 2);  // X: 2112, Y: 640
+	createAirPlatform(37, 7, 2);   // X: 2368, Y: 448
+	createAirPlatform(41, 5, 2);   // X: 2624, Y: 320
+	createAirPlatform(45, 3, 1);   // X: 2880, Y: 192 - 頂上付近
+
+	// === 吹雪エリア (3000-4000px) - 不規則で危険 ===
+	createAirPlatform(49, 8, 2);   // X: 3136, Y: 512
+	createAirPlatform(53, 6, 1);   // X: 3392, Y: 384
+	createAirPlatform(56, 10, 2);  // X: 3584, Y: 640 - 急降下
+	createAirPlatform(60, 4, 2);   // X: 3840, Y: 256 - 再上昇
+
+	// === 山頂 (4000-5000px) - 最終チャレンジ ===
+	createAirPlatform(64, 7, 2);   // X: 4096, Y: 448
+	createAirPlatform(68, 5, 1);   // X: 4352, Y: 320 - 狭い
+	createAirPlatform(71, 9, 2);   // X: 4544, Y: 576
+	createAirPlatform(74, 3, 2);   // X: 4736, Y: 192 - 最高点
+	createAirPlatform(77, 8, 3);   // X: 4928, Y: 512 - ゴール前
+
+	const Vec2 goalPosition = Vec2(80 * BLOCK_SIZE, 8 * BLOCK_SIZE - 32);
+	addGoalFlag(goalPosition);
+}
+
+void Stage::generateStoneStageLayout()
+{
+	// Stage5: 古代遺跡 - 石造建築物と精密なジャンプ
+	const int groundLevel = 13;
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
+
+	// === 遺跡入口 (0-1000px) - 崩れた石段 ===
+	createAirPlatform(5, 11, 2);   // X: 320, Y: 704
+	createAirPlatform(9, 9, 3);    // X: 576, Y: 576
+	createAirPlatform(14, 7, 2);   // X: 896, Y: 448
+
+	// === 大広間 (1000-2000px) - 柱の配置 ===
+	createAirPlatform(18, 10, 1);  // X: 1152, Y: 640 - 柱1
+	createAirPlatform(21, 8, 1);   // X: 1344, Y: 512 - 柱2
+	createAirPlatform(24, 6, 1);   // X: 1536, Y: 384 - 柱3
+	createAirPlatform(27, 4, 1);   // X: 1728, Y: 256 - 柱4
+	createAirPlatform(30, 5, 2);   // X: 1920, Y: 320 - 横梁
+
+	// === 王の間 (2000-3000px) - 対称的な配置 ===
+	createAirPlatform(34, 9, 2);   // X: 2176, Y: 576
+	createAirPlatform(38, 6, 3);   // X: 2432, Y: 384 - 玉座
+	createAirPlatform(42, 9, 2);   // X: 2688, Y: 576
+	createAirPlatform(46, 7, 2);   // X: 2944, Y: 448
+
+	// === 宝物庫への道 (3000-4000px) - 罠を意識 ===
+	createAirPlatform(50, 11, 1);  // X: 3200, Y: 704 - 落とし穴後
+	createAirPlatform(53, 8, 2);   // X: 3392, Y: 512
+	createAirPlatform(57, 5, 1);   // X: 3648, Y: 320 - 狭い
+	createAirPlatform(60, 10, 2);  // X: 3840, Y: 640
+
+	// === 宝物庫 (4000-5000px) - 複雑な最終エリア ===
+	createAirPlatform(64, 7, 2);   // X: 4096, Y: 448
+	createAirPlatform(67, 4, 1);   // X: 4288, Y: 256 - 宝の台座
+	createAirPlatform(70, 6, 2);   // X: 4480, Y: 384
+	createAirPlatform(73, 9, 2);   // X: 4672, Y: 576
+	createAirPlatform(76, 5, 1);   // X: 4864, Y: 320
+	createAirPlatform(78, 8, 3);   // X: 4992, Y: 512 - 脱出口
+
+	const Vec2 goalPosition = Vec2(81 * BLOCK_SIZE, 8 * BLOCK_SIZE - 32);
+	addGoalFlag(goalPosition);
+}
+
+void Stage::generateDirtStageLayout()
+{
+	// Stage6: 地下洞窟（最終ステージ） - 複雑な洞窟構造と総合チャレンジ
+	const int groundLevel = 13;
+	createGroundSection(0, groundLevel, STAGE_WIDTH, 4);
+
+	// === 洞窟入口 (0-1000px) - 下降する地形 ===
+	createAirPlatform(4, 10, 3);   // X: 256, Y: 640
+	createAirPlatform(9, 11, 2);   // X: 576, Y: 704
+	createAirPlatform(13, 12, 2);  // X: 832, Y: 768 - 低い
+
+	// === 鍾乳洞 (1000-2000px) - 上下の足場 ===
+	createAirPlatform(17, 9, 2);   // X: 1088, Y: 576
+	createAirPlatform(20, 5, 2);   // X: 1280, Y: 320 - 天井近く
+	createAirPlatform(23, 11, 3);  // X: 1472, Y: 704 - 床近く
+	createAirPlatform(27, 7, 2);   // X: 1728, Y: 448
+	createAirPlatform(30, 3, 1);   // X: 1920, Y: 192 - 最上部
+
+	// === 地底湖 (2000-3000px) - 離れた足場 ===
+	createAirPlatform(35, 10, 1);  // X: 2240, Y: 640 - 飛び石1
+	createAirPlatform(38, 9, 1);   // X: 2432, Y: 576 - 飛び石2
+	createAirPlatform(41, 10, 1);  // X: 2624, Y: 640 - 飛び石3
+	createAirPlatform(44, 8, 2);   // X: 2816, Y: 512 - 中州
+	createAirPlatform(48, 11, 2);  // X: 3072, Y: 704 - 対岸
+
+	// === 溶岩洞 (3000-4000px) - 危険エリア ===
+	createAirPlatform(52, 9, 1);   // X: 3328, Y: 576 - 小さい
+	createAirPlatform(55, 6, 1);   // X: 3520, Y: 384
+	createAirPlatform(58, 8, 1);   // X: 3712, Y: 512
+	createAirPlatform(61, 4, 2);   // X: 3904, Y: 256 - 安全地帯
+
+	// === 最深部 (4000-5000px) - 最終試練 ===
+	createAirPlatform(65, 10, 2);  // X: 4160, Y: 640
+	createAirPlatform(68, 7, 1);   // X: 4352, Y: 448 - 狭い
+	createAirPlatform(70, 5, 1);   // X: 4480, Y: 320
+	createAirPlatform(72, 3, 1);   // X: 4608, Y: 192 - 最高難度
+	createAirPlatform(74, 6, 2);   // X: 4736, Y: 384
+	createAirPlatform(77, 9, 3);  // X: 4928, Y: 576 - 出口への道
+
+	// 最終ゴール（洞窟の出口）
+	const Vec2 goalPosition = Vec2(80 * BLOCK_SIZE, 9 * BLOCK_SIZE - 32);
+	addGoalFlag(goalPosition);
+}
+
+
 
 // 新しいメソッド：空中プラットフォーム専用（terrain_○○_block.pngを使用）
 void Stage::createAirPlatform(int startX, int y, int width)
@@ -352,7 +593,7 @@ void Stage::drawBlock(const StageBlock& block) const
 
 bool Stage::checkCollision(const RectF& rect) const
 {
-	// プレイヤーの矩形と各ブロックの矩形でintersects判定
+	// ★ 1ブロック基準での正確な衝突判定
 	for (const auto& block : m_blocks)
 	{
 		if (block.isSolid && block.blockType != BlockType::Empty)
@@ -369,8 +610,10 @@ bool Stage::checkCollision(const RectF& rect) const
 
 Array<RectF> Stage::getCollisionRects() const
 {
-	// 全ての固体ブロックの矩形を返す（Siv3D流の当たり判定用）
+	// ★ 全ての固体ブロックの矩形を64x64基準で返す
 	Array<RectF> collisionRects;
+	collisionRects.reserve(m_blocks.size()); // パフォーマンス向上
+
 	for (const auto& block : m_blocks)
 	{
 		if (block.isSolid && block.blockType != BlockType::Empty)
@@ -383,11 +626,13 @@ Array<RectF> Stage::getCollisionRects() const
 
 Vec2 Stage::worldToScreenPosition(const Vec2& worldPos) const
 {
+	// ★ カメラオフセットを考慮した正確な座標変換
 	return worldPos - m_cameraOffset;
 }
 
 Vec2 Stage::screenToWorldPosition(const Vec2& screenPos) const
 {
+	// ★ スクリーン座標からワールド座標への変換
 	return screenPos + m_cameraOffset;
 }
 
@@ -406,28 +651,92 @@ void Stage::drawCollisionDebug() const
 			{
 				const RectF blockRect(screenPos, BLOCK_SIZE, BLOCK_SIZE);
 				blockRect.drawFrame(2.0, ColorF(1.0, 0.0, 0.0, 0.5));
+
+				// ★ グリッド座標とワールド座標を表示
+				const Point gridPos = worldToGridPosition(block.position);
+				Font(12)(U"({},{})"_fmt(gridPos.x, gridPos.y))
+					.draw(screenPos + Vec2(4, 4), ColorF(1.0, 1.0, 0.0));
 			}
 		}
 	}
 
-	// ★ 追加: デバッグ情報をテキストで表示
+	// ★ デバッグ情報をテキストで表示（64x64基準）
 	Font debugFont(16);
-	const String debugInfo = U"Ground Level: {} (pixel: {})"_fmt(
-		STAGE_HEIGHT - 4,
-		(STAGE_HEIGHT - 4) * BLOCK_SIZE
+	const String debugInfo = U"Block Size: {}px | Grid: {}x{} | Ground Level: Block {}"_fmt(
+		BLOCK_SIZE,
+		STAGE_WIDTH,
+		STAGE_HEIGHT,
+		STAGE_HEIGHT - 4
 	);
 	debugFont(debugInfo).draw(10, Scene::Height() - 60, ColorF(1.0, 1.0, 0.0));
 
-	const String blockInfo = U"Total Blocks: {} | Block Size: {}px"_fmt(
+	const String blockInfo = U"Total Blocks: {} | Stage Width: {}px"_fmt(
 		m_blocks.size(),
-		BLOCK_SIZE
+		m_stagePixelWidth
 	);
 	debugFont(blockInfo).draw(10, Scene::Height() - 40, ColorF(1.0, 1.0, 0.0));
+
+	// ★ プレイヤー位置に対するグリッド座標表示
+	if (m_cameraOffset.x > 0)
+	{
+		const double playerWorldX = m_cameraOffset.x + Scene::Width() / 2.0;
+		const int playerGridX = static_cast<int>(playerWorldX / BLOCK_SIZE);
+		const String playerGridInfo = U"Player Grid X: {} (World X: {:.0f})"_fmt(
+			playerGridX, playerWorldX
+		);
+		debugFont(playerGridInfo).draw(10, Scene::Height() - 20, ColorF(0.8, 1.0, 0.8));
+	}
 #endif
 }
 
-bool Stage::isBlockSolid(int gridX, int gridY) const
+// ★ 新しいメソッド: 指定位置にプレイヤーが入れるかチェック
+bool Stage::canPlayerFitAt(const Vec2& position) const
 {
+	const double halfSize = BLOCK_SIZE / 2.0;
+	const RectF playerRect(
+		position.x - halfSize,
+		position.y - halfSize,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
+
+	return !checkCollision(playerRect);
+}
+
+// 指定グリッド座標が空いているかチェック
+bool Stage::isGridPositionFree(int gridX, int gridY) const
+{
+	return !isBlockSolid(gridX, gridY);
+}
+
+// プレイヤーサイズでの隙間チェック
+bool Stage::hasOneBlockGap(int gridX, int gridY) const
+{
+	// 指定位置とその上の1ブロックが空いているかチェック
+	return isGridPositionFree(gridX, gridY) && isGridPositionFree(gridX, gridY - 1);
+}
+
+//地面レベルの取得（グリッド座標）
+int Stage::getGroundLevel() const
+{
+	return STAGE_HEIGHT - 4; // 13ブロック目（0ベースで12）
+}
+
+//ステージの境界チェック
+bool Stage::isWithinStageBounds(const Vec2& position) const
+{
+	return position.x >= 0 && position.x <= m_stagePixelWidth &&
+		position.y >= 0 && position.y <= STAGE_HEIGHT * BLOCK_SIZE;
+}
+
+bool Stage::isBlockSolid(int gridX, int gridY) const{
+
+	// ★ グリッド座標での正確なブロック判定
+	if (gridX < 0 || gridX >= STAGE_WIDTH || gridY < 0 || gridY >= STAGE_HEIGHT)
+	{
+		return false; // 範囲外は非固体
+	}
+
 	for (const auto& block : m_blocks)
 	{
 		const Point blockGrid = worldToGridPosition(block.position);
@@ -443,18 +752,20 @@ Vec2 Stage::getGroundPosition(double x) const
 {
 	const int gridX = static_cast<int>(x / BLOCK_SIZE);
 
+	// ★ 1ブロック基準での地面検索
 	// 上から下に向かって最初に見つかるソリッドブロックの上面を返す
 	for (int gridY = 0; gridY < STAGE_HEIGHT; ++gridY)
 	{
 		if (isBlockSolid(gridX, gridY))
 		{
+			// ブロックの上面の位置を返す
 			return Vec2(x, gridY * BLOCK_SIZE);
 		}
 	}
 
-	// ★ 修正: ソリッドブロックが見つからない場合は画面下端ではなく、想定される地面位置
-	const int groundLevel = STAGE_HEIGHT - 4;
-	return Vec2(x, groundLevel * BLOCK_SIZE);
+	// ソリッドブロックが見つからない場合は基本地面位置
+	const int defaultGroundLevel = STAGE_HEIGHT - 4; // 13ブロック目
+	return Vec2(x, defaultGroundLevel * BLOCK_SIZE);
 }
 
 Vec2 Stage::gridToWorldPosition(int gridX, int gridY) const
@@ -464,9 +775,10 @@ Vec2 Stage::gridToWorldPosition(int gridX, int gridY) const
 
 Point Stage::worldToGridPosition(const Vec2& worldPos) const
 {
+	// ★ ワールド座標からグリッド座標への変換（64x64基準）
 	return Point(
-		static_cast<int>(worldPos.x / BLOCK_SIZE),
-		static_cast<int>(worldPos.y / BLOCK_SIZE)
+		static_cast<int>(Math::Floor(worldPos.x / BLOCK_SIZE)),
+		static_cast<int>(Math::Floor(worldPos.y / BLOCK_SIZE))
 	);
 }
 

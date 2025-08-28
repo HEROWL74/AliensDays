@@ -17,7 +17,8 @@
 #include "StarSystem.hpp"
 #include "BlockSystem.hpp"
 #include "CollisionSystem.hpp"
-
+#include "ShaderEffects.hpp"
+#include "DayNightSystem.hpp"
 // ファイアボール撃破エフェクト用の構造体
 struct FireballParticle
 {
@@ -109,6 +110,11 @@ private:
 	// ファイアボール撃破エフェクト用メンバー変数
 	Array<FireballDestructionEffect> m_fireballDestructionEffects;
 
+	//シェーダーエフェクト
+	std::unique_ptr<ShaderEffects> m_shaderEffects;
+
+	std::unique_ptr<DayNightSystem> m_dayNightSystem;
+
 	// リザルト関連
 	bool m_isLastStage;
 	bool m_fromResultScene;
@@ -128,16 +134,17 @@ public:
 	void init() override;
 	void update() override;
 	void draw() const override;
+
 	Optional<SceneType> getNextScene() const override;
 	void cleanup() override;
 
 	// 静的メソッド - リザルトデータ管理用
-	static StageNumber getNextStageNumber() { return s_nextStageNumber; }
-	static StageNumber getGameOverStage() { return s_gameOverStage; }
-	static int getResultStars() { return s_resultStars; }
-	static int getResultCoins() { return s_resultCoins; }
-	static double getResultTime() { return s_resultTime; }
-	static PlayerColor getResultPlayerColor() { return s_resultPlayerColor; }
+	static StageNumber getNextStageNumber() noexcept { return s_nextStageNumber; }
+	static StageNumber getGameOverStage()noexcept { return s_gameOverStage; }
+	static int getResultStars() noexcept{ return s_resultStars; }
+	static int getResultCoins() noexcept{ return s_resultCoins; }
+	static double getResultTime() noexcept{ return s_resultTime; }
+	static PlayerColor getResultPlayerColor()noexcept { return s_resultPlayerColor; }
 	static void clearResultData() {
 		s_nextStageNumber = StageNumber::Stage1;
 		s_resultStars = 0;
@@ -196,4 +203,11 @@ private:
 	void createFireballDestructionEffect(const Vec2& enemyPos, EnemyType enemyType, const Vec2& fireballPos);
 	void updateFireballDestructionEffects();
 	void drawFireballDestructionEffects() const;
+
+	//昼夜実装
+	void updateDayNight();
+	void drawDayNightEffects() const;
+	void drawDayNightUI() const;
+	void drawNightWarningEffects() const;
+	void drawSunsetCautionEffects() const;
 };

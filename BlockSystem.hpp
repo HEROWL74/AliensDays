@@ -90,6 +90,26 @@ public:
 	int getTotalBlockCount() const { return static_cast<int>(m_blocks.size()); }
 	int getActiveBlockCount() const;
 
+	// ブロックへの読み取り専用アクセス
+	const Array<std::unique_ptr<Block>>& getBlocks() const { return m_blocks; }
+
+	// 個別ブロックの情報取得（安全なアクセス）
+	Array<Block> getActiveBlocks() const {
+		Array<Block> activeBlocks;
+		for (const auto& block : m_blocks) {
+			if (block && block->state != BlockState::DESTROYED) {
+				activeBlocks.push_back(*block);
+			}
+		}
+		return activeBlocks;
+	}
+
+	// ブロックが有効かどうか
+	bool isBlockActive(size_t index) const {
+		if (index >= m_blocks.size() || !m_blocks[index]) return false;
+		return m_blocks[index]->state != BlockState::DESTROYED;
+	}
+
 private:
 	// テクスチャ
 	Texture m_coinBlockActiveTexture;   // アクティブなコインブロック
@@ -120,6 +140,8 @@ private:
 
 	// 既存の内部メソッド（簡素化）
 	void updateFragments();
+	void addBlockAtGrid(int gridX, int gridY, BlockType type);
+	bool hasBlockInGridRange(int startX, int startY, int width, int height) const;
 	void handleCoinBlockHit(Block& block);
 	void handleBrickBlockHit(Block& block);
 	void createBrickFragments(const Vec2& blockPos);

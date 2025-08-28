@@ -12,6 +12,7 @@ enum class PlayerState
 	Duck,
 	Hit,
 	Climb,
+	Sliding,
 	Exploding,  // 爆散状態
 	Dead        // 死亡状態
 };
@@ -67,6 +68,14 @@ private:
 	double m_explosionTimer;
 	double m_deathTimer;
 
+	// スライディング関連
+	bool m_isSliding;
+	double m_slideTimer;
+	double m_slideSpeed;
+	PlayerDirection m_slideDirection;
+	float SLIDE_MIN_SPEED = 3.0f;
+	float SLIDE_INITIAL_SPEED = 1.0f;
+
 	// パーティクルシステム
 	struct ExplosionParticle
 	{
@@ -93,6 +102,10 @@ private:
 	Array<Vec2> m_shockwaves;
 	Array<double> m_shockwaveTimers;
 
+	Vec2 m_previousPosition;  // 前フレームの位置
+	bool m_wasMovingUp;       // 前フレームで上向きに移動していたか
+
+
 	// ファイアボール関連のメンバー変数
 	Array<Fireball> m_fireballs;
 	Texture m_fireballTexture;
@@ -106,16 +119,26 @@ private:
 	static constexpr double CLIMB_ANIMATION_SPEED = 0.4;
 	static constexpr double HIT_DURATION = 0.5;
 	static constexpr double JUMP_THRESHOLD = 0.1;
-	static constexpr double BASE_MOVE_SPEED = 350.0;
-	static constexpr double BASE_JUMP_POWER = 650.0;
+	static constexpr double BASE_MOVE_SPEED = 320.0;
+	static constexpr double BASE_JUMP_POWER = 960.0;
 	static constexpr double BASE_INVINCIBLE_DURATION = 2.0;
-	static constexpr double GRAVITY = 600.0;
+	static constexpr double GRAVITY = 1600.0;
 	static constexpr double GROUND_Y = 500.0;
 	static constexpr double AIR_CONTROL = 0.8;
 	static constexpr double EXPLOSION_DURATION = 1.5;
 	static constexpr double DEATH_DELAY = 2.0;
 	static constexpr int EXPLOSION_PARTICLE_COUNT = 25;
-	static constexpr double PARTICLE_GRAVITY = 300.0;
+	static constexpr double PARTICLE_GRAVITY = 960.0;
+
+	// スライディング定数
+	static constexpr double SLIDE_SPEED = 448.0;
+	static constexpr double SLIDE_DURATION = 384.0;
+	static constexpr double SLIDE_DECELERATION = 0.85;
+
+	// ジャンプ状態の追跡用（ブロック破壊判定用）
+	bool m_wasJumping;
+	double m_jumpStateTimer;
+	static constexpr double JUMP_STATE_DURATION = 0.5; // ジャンプ状態を維持する時間
 
 public:
 	Player();
@@ -150,6 +173,14 @@ public:
 	bool isExploding() const { return m_isExploding; }
 	bool isDead() const { return m_currentState == PlayerState::Dead; }
 	double getDeathTimer() const { return m_deathTimer; }
+
+	// スライディング関連のメソッド
+	void startSliding(PlayerDirection direction);
+	void updateSliding();
+	void endSliding();
+	bool wasMovingUpward() const;
+	bool isSliding() const { return m_isSliding; }
+	double getSlideSpeed() const { return m_slideSpeed; }
 
 	// 位置・移動
 	Vec2 getPosition() const { return m_position; }
@@ -191,6 +222,15 @@ public:
 	// ユーティリティ
 	String getColorString() const;
 	String getStateString() const;
+
+	// ジャンプ状態を取得するメソッドを追加
+	bool isInJumpState() const {
+		// より厳格なジャンプ状態の判定
+		return (m_currentState == PlayerState::Jump && m_velocity.y < -50.0) ||
+			(m_jumpStateTimer > 0.0 && m_velocity.y < -30.0) ||
+			(!m_isGrounded && m_velocity.y < -50.0);
+	}
+
 
 private:
 	// 内部ヘルパーメソッド

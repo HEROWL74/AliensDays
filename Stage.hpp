@@ -103,8 +103,6 @@ public:
 	void loadTerrainTextures();
 	void generateStageLayout();
 
-	void generateUnifiedStageLayout();
-
 	void createAirPlatform(int startX, int y, int width);
 
 	// 更新・描画
@@ -123,12 +121,21 @@ public:
 
 	// 衝突判定
 	bool checkCollision(const RectF& rect) const;
+	bool isWithinStageBounds(const Vec2& position) const;
 	bool isBlockSolid(int gridX, int gridY) const;
 	Vec2 getGroundPosition(double x) const;  // 指定X座標での地面位置を取得
 	Array<RectF> getCollisionRects() const;
 	Vec2 screenToWorldPosition(const Vec2& screenPos) const;
 	Vec2 worldToScreenPosition(const Vec2& worldPos) const;
 	void drawCollisionDebug() const;         // デバッグ用衝突判定描画
+
+	bool canPlayerFitAt(const Vec2& position) const;
+
+	bool isGridPositionFree(int gridX, int gridY) const;
+
+	bool hasOneBlockGap(int gridX, int gridY) const;
+
+	int getGroundLevel() const;
 
 	// ユーティリティ
 	Vec2 gridToWorldPosition(int gridX, int gridY) const;
@@ -148,7 +155,13 @@ public:
 	bool hasGoal() const { return m_hasGoal; }
 
 private:
-
+	// ステージ別レイアウト生成メソッド
+	void generateGrassStageLayout();    // ステージ1: 草原
+	void generateSandStageLayout();     // ステージ2: 砂漠
+	void generatePurpleStageLayout();   // ステージ3: 魔法の森
+	void generateSnowStageLayout();     // ステージ4: 雪山
+	void generateStoneStageLayout();    // ステージ5: 古代遺跡
+	void generateDirtStageLayout();     // ステージ6: 地下洞窟
 
 	// ブロック配置ヘルパー（新システム）
 	void setBlock(int gridX, int gridY, BlockType blockType, bool isSolid = true);
@@ -156,8 +169,6 @@ private:
 	void createSinglePlatform(int x, int y);
 	void createHorizontalPlatform(int startX, int y, int width);
 	BlockType determineGroundBlockType(int localX, int localY, int totalWidth, int totalHeight) const;
-
-
 
 	// テクスチャ関連
 	String buildTextureKey(TerrainType terrain, BlockType blockType) const;

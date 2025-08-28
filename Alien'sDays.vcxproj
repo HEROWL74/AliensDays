@@ -122,6 +122,7 @@
     <ClCompile Include="CoinSystem.cpp" />
     <ClCompile Include="CollisionSystem.cpp" />
     <ClCompile Include="CreditScene.cpp" />
+    <ClCompile Include="DayNightSystem.cpp" />
     <ClCompile Include="EnemyBase.cpp" />
     <ClCompile Include="Fly.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -359,7 +360,9 @@
     <ClInclude Include="CoinSystem.hpp" />
     <ClInclude Include="CollisionSystem.hpp" />
     <ClInclude Include="CreditScene.hpp" />
+    <ClInclude Include="DayNightSystem.hpp" />
     <ClInclude Include="EnemyBase.hpp" />
+    <ClInclude Include="EnemyFactory.hpp" />
     <ClInclude Include="Fly.hpp" />
     <ClInclude Include="Game.hpp" />
     <ClInclude Include="GameOverScene.hpp" />
@@ -374,6 +377,7 @@
     <ClInclude Include="Saw.hpp" />
     <ClInclude Include="SceneBase.hpp" />
     <ClInclude Include="SceneManagers.hpp" />
+    <ClInclude Include="ShaderEffects.hpp" />
     <ClInclude Include="SlimeBlock.hpp" />
     <ClInclude Include="SoundManager.hpp" />
     <ClInclude Include="SpikeSlime.hpp" />
@@ -467,6 +471,38 @@
     <None Include="App\example\shader\hlsl\terrain_normal.hlsl">
       <FileType>Document</FileType>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="App\Shaders\ChromaticAberration.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\DayNight.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\Glow.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\Shockwave.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\Wave.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -16,7 +16,11 @@ Player::Player()
 	, m_isExploding(false)
 	, m_explosionTimer(0.0)
 	, m_deathTimer(0.0)
-	, m_fireballCount(0)  // ★ 初期化追加
+	, m_fireballCount(0)
+	, m_isSliding(false)         
+	, m_slideTimer(0.0)          
+	, m_slideSpeed(0.0)          
+	, m_slideDirection(PlayerDirection::Right)
 {
 	// パーティクル配列をクリア
 	m_explosionParticles.clear();
@@ -41,8 +45,12 @@ Player::Player(PlayerColor color, const Vec2& startPosition)
 	, m_explosionTimer(0.0)
 	, m_deathTimer(0.0)
 	, m_fireballCount(0)
+	, m_isSliding(false)
+	, m_slideTimer(0.0)  
+	, m_slideSpeed(0.0)       
+	, m_slideDirection(PlayerDirection::Right) 
 {
-	// パーティクル配列もクリア
+	// パーティクル配列をクリア
 	m_explosionParticles.clear();
 	m_shockwaves.clear();
 	m_shockwaveTimers.clear();
@@ -50,7 +58,6 @@ Player::Player(PlayerColor color, const Vec2& startPosition)
 
 	loadTextures();
 }
-
 void Player::init(PlayerColor color, const Vec2& startPosition)
 {
 	m_color = color;
@@ -124,8 +131,18 @@ void Player::update()
 {
 	const double deltaTime = Scene::DeltaTime();
 
+	// ★ 追加: 前フレームの位置を記録
+	m_previousPosition = m_position;
+	m_wasMovingUp = m_velocity.y < 0;
+
 	m_animationTimer += deltaTime;
 	m_stateTimer += deltaTime;
+
+	// ★ ジャンプ状態タイマーの更新
+	if (m_jumpStateTimer > 0.0)
+	{
+		m_jumpStateTimer -= deltaTime;
+	}
 
 	// 無敵状態の更新
 	updateInvincibility();
@@ -160,6 +177,7 @@ void Player::update()
 	updateFireballs();
 }
 
+
 void Player::draw() const
 {
 	// 爆散中の場合はエフェクトのみ描画
@@ -175,12 +193,13 @@ void Player::draw() const
 		return;
 	}
 
-	// 通常のプレイヤー描画のみ
+	// 通常のプレイヤー描画
 	const Texture currentTexture = getCurrentTexture();
 
 	if (currentTexture)
 	{
-		const double scale = getScale();
+		// プレイヤーサイズを少し小さく描画（60x60相当）
+		const double scale = 0.9375; // 64 * 0.9375 = 60
 		const double rotation = getRotation();
 		const ColorF tint = getTint();
 
@@ -195,11 +214,12 @@ void Player::draw() const
 	}
 	else
 	{
+		// フォールバック: 少し小さい円
 		const ColorF fallbackColor = getTint();
-		Circle(m_position, 25).draw(fallbackColor);
+		Circle(m_position, 23).draw(fallbackColor); // 25 -> 23に縮小
 	}
 
-	// デバッグ情報（開発時のみ）
+	// デバッグ情報
 #ifdef _DEBUG
 	const String debugText = U"{} - {} - Inv:{} - {} - FB:{}/{} - Active:{}"_fmt(
 		getColorString(),
@@ -212,10 +232,16 @@ void Player::draw() const
 	);
 	Font(16)(debugText).draw(m_position.x - 70, m_position.y - 60, ColorF(1.0, 1.0, 1.0));
 
-	const String statsText = U"Move:{:.1f} Jump:{:.1f} Life:{}"_fmt(
+	const String statsText = U"Move:{:.1f} Jump:{:.1f} Life:{} Size:60x60"_fmt(
 		m_stats.moveSpeed, m_stats.jumpPower, m_stats.maxLife
 	);
 	Font(14)(statsText).draw(m_position.x - 70, m_position.y - 45, ColorF(0.8, 0.8, 1.0));
+
+	// 衝突判定の可視化（開発用）
+	const double PLAYER_SIZE = 60.0;
+	const double halfSize = PLAYER_SIZE / 2.0;
+	RectF(m_position.x - halfSize, m_position.y - halfSize, PLAYER_SIZE, PLAYER_SIZE)
+		.drawFrame(2.0, ColorF(1.0, 0.0, 1.0, 0.5));
 
 	// ファイアボールのデバッグ描画（ワールド座標）
 	for (size_t i = 0; i < m_fireballs.size(); ++i)
@@ -229,94 +255,7 @@ void Player::draw() const
 #endif
 }
 
-void Player::handleInput()
-{
-	// 爆散中や死亡中は入力を受け付けない
-	if (m_isExploding || m_currentState == PlayerState::Dead) return;
 
-	// 移動入力
-	Vec2 inputVector(0, 0);
-	bool hasMovementInput = false;
-
-	if (KeyLeft.pressed() || KeyA.pressed())
-	{
-		inputVector.x = -1;
-		setDirection(PlayerDirection::Left);
-		hasMovementInput = true;
-	}
-	if (KeyRight.pressed() || KeyD.pressed())
-	{
-		inputVector.x = 1;
-		setDirection(PlayerDirection::Right);
-		hasMovementInput = true;
-	}
-
-	// 移動処理
-	if (inputVector.x != 0.0)
-	{
-		double moveSpeed = getActualMoveSpeed();
-
-		if (!m_isGrounded)
-		{
-			moveSpeed *= AIR_CONTROL;
-		}
-
-		m_velocity.x = inputVector.x * moveSpeed;
-
-		// ★ 修正: 状態変更をより慎重に
-		if (m_isGrounded &&
-			m_currentState != PlayerState::Duck &&
-			m_currentState != PlayerState::Hit &&
-			m_currentState != PlayerState::Jump)
-		{
-			setState(PlayerState::Walk);
-		}
-	}
-	else
-	{
-		if (m_isGrounded)
-		{
-			m_velocity.x = 0.0;
-
-			// ★ 修正: アイドル状態への変更をより慎重に
-			if (m_currentState == PlayerState::Walk &&
-				m_currentState != PlayerState::Hit &&
-				m_currentState != PlayerState::Duck)
-			{
-				setState(PlayerState::Idle);
-			}
-		}
-		else
-		{
-			m_velocity.x *= 0.95;
-		}
-	}
-
-	// ジャンプ - 条件をシンプルに
-	if ((KeySpace.down() || KeyUp.down() || KeyW.down()) && m_isGrounded)
-	{
-		jump();
-	}
-
-	// しゃがみ
-	if (KeyDown.pressed() || KeyS.pressed())
-	{
-		if (m_isGrounded && m_currentState != PlayerState::Hit)
-		{
-			duck();
-		}
-	}
-	else if (m_currentState == PlayerState::Duck)
-	{
-		setState(PlayerState::Idle);
-	}
-
-	// ファイアボール発射
-	if (KeyF.down())
-	{
-		fireFireball();
-	}
-}
 
 
 void Player::setState(PlayerState newState)
@@ -351,26 +290,186 @@ void Player::updatePhysics()
 
 void Player::updateBasicPhysics()
 {
+	const double BLOCK_SIZE = 64.0;
 	const double deltaTime = Scene::DeltaTime();
 
-	// 重力適用（地上にいない場合のみ）
+	// ★ 改善された重力システム
 	if (!m_isGrounded)
 	{
-		applyGravity();
+		// より自然な重力カーブ
+		const double baseGravity = BLOCK_SIZE * 25.0;
+		double currentGravity = baseGravity;
+
+		// 上昇中は重力を弱める（ふわりとした感じ）
+		if (m_velocity.y < 0.0)
+		{
+			currentGravity *= 0.7;
+		}
+
+		m_velocity.y += currentGravity * deltaTime;
+
+		// より現実的な終端速度
+		const double MAX_FALL_SPEED = BLOCK_SIZE * 12.0;
+		if (m_velocity.y > MAX_FALL_SPEED)
+		{
+			m_velocity.y = MAX_FALL_SPEED;
+		}
 	}
 
-	// ★ 重要修正: 位置更新は CollisionSystem で処理されるため、ここでは速度更新のみ
-	m_position += m_velocity * deltaTime;  // この行をコメントアウト
-
-	// ★ フォールバック地面衝突判定は CollisionSystem に任せるため削除
-	 //checkBasicGroundCollision(); 
-
-	// 速度の減衰処理（空中での横移動制御）
-	if (!m_isGrounded)
+	// 水平方向の最大速度制限
+	const double MAX_HORIZONTAL_SPEED = BLOCK_SIZE * 8.0;
+	if (std::abs(m_velocity.x) > MAX_HORIZONTAL_SPEED)
 	{
-		m_velocity.x *= 0.98;  // 空中での横移動減衰
+		m_velocity.x = (m_velocity.x > 0) ? MAX_HORIZONTAL_SPEED : -MAX_HORIZONTAL_SPEED;
 	}
 }
+
+
+void Player::handleInput()
+{
+	if (m_isExploding || m_currentState == PlayerState::Dead) return;
+
+	const double BLOCK_SIZE = 64.0;
+
+	// 入力状態の取得
+	bool leftPressed = KeyLeft.pressed() || KeyA.pressed();
+	bool rightPressed = KeyRight.pressed() || KeyD.pressed();
+	bool downPressed = KeyDown.pressed() || KeyS.pressed();
+	bool jumpPressed = KeySpace.pressed() || KeyUp.pressed() || KeyW.pressed();
+	bool jumpDown = KeySpace.down() || KeyUp.down() || KeyW.down();
+	bool hasHorizontalInput = leftPressed || rightPressed;
+
+	// 方向設定
+	if (leftPressed) setDirection(PlayerDirection::Left);
+	if (rightPressed) setDirection(PlayerDirection::Right);
+
+	// スライディング処理
+	if (m_isSliding)
+	{
+		m_slideSpeed *= SLIDE_DECELERATION;
+		const double slideVelocity = (m_slideDirection == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
+		m_velocity.x = slideVelocity;
+
+		const double minSlideSpeed = BLOCK_SIZE * 0.5;
+		if (m_slideSpeed < minSlideSpeed || !m_isGrounded || !downPressed)
+		{
+			m_isSliding = false;
+			m_slideSpeed = 0.0;
+		}
+
+		if (KeyF.down()) fireFireball();
+		return;
+	}
+
+	// スライディング開始判定
+	if (downPressed && hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit)
+	{
+		m_isSliding = true;
+		m_slideSpeed = BLOCK_SIZE * 7.0;
+		m_slideDirection = rightPressed ? PlayerDirection::Right : PlayerDirection::Left;
+		setState(PlayerState::Duck);
+
+		if (KeyF.down()) fireFireball();
+		return;
+	}
+
+	// ★ 改善されたジャンプ処理
+	if (jumpDown && m_isGrounded && !m_isSliding && m_currentState != PlayerState::Hit)
+	{
+		jump();
+	}
+
+	// ★ 可変高さジャンプの改良
+	if (!jumpPressed && m_velocity.y < 0.0 && !m_isGrounded)
+	{
+		// ジャンプボタンを離したら上昇力を大幅に減衰
+		m_velocity.y *= 0.3;
+	}
+
+	// ★ 改善された水平移動処理 - 壁際の挙動を改良
+	if (hasHorizontalInput && !downPressed)
+	{
+		double baseMoveSpeed = BLOCK_SIZE * 5.0;
+		double moveSpeed = baseMoveSpeed * m_stats.moveSpeed;
+
+		// 地上と空中で異なる制御
+		if (m_isGrounded)
+		{
+			// ★ 修正: 地上での移動をより滑らかに
+			double targetVelX = (rightPressed ? 1.0 : -1.0) * moveSpeed;
+
+			// 現在の速度が0に近く、目標速度と逆方向の場合は即座に変更
+			if (Math::Abs(m_velocity.x) < 10.0 ||
+				(m_velocity.x > 0 && targetVelX < 0) ||
+				(m_velocity.x < 0 && targetVelX > 0))
+			{
+				m_velocity.x = targetVelX * 0.7; // 即座に70%の速度で開始
+			}
+			else
+			{
+				// 通常の加速処理
+				m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, 0.25);
+			}
+
+			if (m_currentState != PlayerState::Hit)
+			{
+				setState(PlayerState::Walk);
+			}
+		}
+		else
+		{
+			// ★ 修正: 空中での移動制御を改良
+			double airMoveSpeed = moveSpeed * 0.75;
+			double targetVelX = (rightPressed ? 1.0 : -1.0) * airMoveSpeed;
+
+			// 空中では壁に当たっていても入力方向に少し力を加える
+			double airControl = 0.12;
+			m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, airControl);
+		}
+	}
+	else if (!downPressed)
+	{
+		// ★ 修正: 入力がない場合の減速を改良
+		if (m_isGrounded)
+		{
+			// 地上：強い摩擦だが、壁に当たっている時は即座に停止
+			const double friction = (Math::Abs(m_velocity.x) > BASE_MOVE_SPEED * 0.1) ? 0.75 : 0.5;
+			m_velocity.x *= friction;
+
+			if (Math::Abs(m_velocity.x) < BLOCK_SIZE * 0.1)
+			{
+				m_velocity.x = 0.0;
+			}
+
+			if (m_currentState == PlayerState::Walk && Math::Abs(m_velocity.x) < BLOCK_SIZE * 0.5)
+			{
+				setState(PlayerState::Idle);
+			}
+		}
+		else
+		{
+			m_velocity.x *= 0.98;  // 空中：非常に弱い空気抵抗
+		}
+	}
+
+	// しゃがみ処理
+	if (downPressed && !hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit)
+	{
+		setState(PlayerState::Duck);
+		m_velocity.x *= 0.5;
+	}
+	else if (m_currentState == PlayerState::Duck && !downPressed && !m_isSliding)
+	{
+		setState(PlayerState::Idle);
+	}
+
+	// ファイアボール
+	if (KeyF.down())
+	{
+		fireFireball();
+	}
+}
+
 
 void Player::checkBasicGroundCollision()
 {
@@ -408,23 +507,14 @@ void Player::checkBasicGroundCollision()
 
 void Player::updateStateTransitions()
 {
+	if (m_isSliding) return;
+
 	// ヒット状態の自動解除
 	if (m_currentState == PlayerState::Hit && m_stateTimer >= HIT_DURATION)
 	{
 		if (m_isGrounded)
 		{
-			// 移動入力があるかチェック
-			bool hasMovementInput = (KeyLeft.pressed() || KeyA.pressed() ||
-									KeyRight.pressed() || KeyD.pressed());
-
-			if (hasMovementInput)
-			{
-				setState(PlayerState::Walk);
-			}
-			else
-			{
-				setState(PlayerState::Idle);
-			}
+			setState(PlayerState::Idle);
 		}
 		else
 		{
@@ -432,8 +522,59 @@ void Player::updateStateTransitions()
 		}
 	}
 
-	// ★ 新規: 地面状態に応じた状態遷移（CollisionSystemが更新した後）
-	updateGroundStateTransitions();
+	// ★ より自然なジャンプ状態の判定
+	const double JUMP_VELOCITY_THRESHOLD = -30.0;  // より低い閾値
+
+	if (m_velocity.y < JUMP_VELOCITY_THRESHOLD && !m_isGrounded)
+	{
+		if (!m_wasJumping)
+		{
+			m_jumpStateTimer = JUMP_STATE_DURATION;
+			m_wasJumping = true;
+		}
+	}
+	else if (m_isGrounded)
+	{
+		m_wasJumping = false;
+		m_jumpStateTimer = 0.0;
+	}
+
+	// ★ 改善された状態遷移ロジック
+	if (!m_isGrounded)
+	{
+		// 空中にいる場合はジャンプ状態
+		if (m_currentState != PlayerState::Jump &&
+			m_currentState != PlayerState::Hit)
+		{
+			setState(PlayerState::Jump);
+		}
+	}
+	else if (m_isGrounded && m_currentState == PlayerState::Jump)
+	{
+		// 着地時の状態遷移
+		bool downPressed = KeyDown.pressed() || KeyS.pressed();
+		bool hasHorizontalInput = KeyLeft.pressed() || KeyA.pressed() ||
+			KeyRight.pressed() || KeyD.pressed();
+
+		if (downPressed)
+		{
+			setState(PlayerState::Duck);
+		}
+		else if (hasHorizontalInput)
+		{
+			setState(PlayerState::Walk);
+		}
+		else
+		{
+			setState(PlayerState::Idle);
+		}
+	}
+
+	// ジャンプ状態タイマーの更新
+	if (m_jumpStateTimer > 0.0)
+	{
+		m_jumpStateTimer -= Scene::DeltaTime();
+	}
 }
 
 void Player::updateGroundStateTransitions()
@@ -522,7 +663,6 @@ Texture Player::getCurrentTexture() const
 		break;
 	case PlayerState::Walk:
 	{
-		// ウォークアニメーション（walk_a と walk_b を交互に）
 		const bool useVariantA = std::fmod(m_animationTimer, WALK_ANIMATION_SPEED * 2) < WALK_ANIMATION_SPEED;
 		textureKey = useVariantA ? U"walk_a" : U"walk_b";
 	}
@@ -533,19 +673,20 @@ Texture Player::getCurrentTexture() const
 	case PlayerState::Duck:
 		textureKey = U"duck";
 		break;
+	case PlayerState::Sliding:  // ★ 追加
+		textureKey = U"duck";   // しゃがみテクスチャを流用（専用テクスチャがあれば変更）
+		break;
 	case PlayerState::Hit:
 		textureKey = U"hit";
 		break;
 	case PlayerState::Climb:
 	{
-		// クライムアニメーション（climb_a と climb_b を交互に）
 		const bool useVariantA = std::fmod(m_animationTimer, CLIMB_ANIMATION_SPEED * 2) < CLIMB_ANIMATION_SPEED;
 		textureKey = useVariantA ? U"climb_a" : U"climb_b";
 	}
 	break;
 	case PlayerState::Exploding:
 	case PlayerState::Dead:
-		// 爆散・死亡状態では通常テクスチャは表示しない
 		return Texture{};
 	default:
 		textureKey = U"idle";
@@ -558,7 +699,6 @@ Texture Player::getCurrentTexture() const
 	}
 	else
 	{
-		// フォールバック：アイドルテクスチャ
 		if (m_textures.contains(U"idle"))
 		{
 			return m_textures.at(U"idle");
@@ -566,6 +706,7 @@ Texture Player::getCurrentTexture() const
 		return Texture{};
 	}
 }
+
 
 double Player::getScale() const
 {
@@ -615,13 +756,23 @@ void Player::applyGravity()
 
 void Player::jump()
 {
-	if (m_isGrounded)
-	{
-		m_velocity.y = -getActualJumpPower();
-		setState(PlayerState::Jump);
-		m_isGrounded = false;  
-		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_JUMP);
-	}
+	if (!m_isGrounded) return;
+
+	const double BLOCK_SIZE = 64.0;
+
+	// ★ より自然なジャンプ力の計算
+	double baseJumpPower = BLOCK_SIZE * 12.0;  // 基本値を少し下げる
+	double jumpPower = baseJumpPower * m_stats.jumpPower;
+
+	m_velocity.y = -jumpPower;
+	setState(PlayerState::Jump);
+	m_isGrounded = false;
+
+	// ジャンプ状態タイマーを設定
+	m_jumpStateTimer = JUMP_STATE_DURATION;
+	m_wasJumping = true;
+
+	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_JUMP);
 }
 
 void Player::hit()
@@ -889,6 +1040,7 @@ String Player::getStateString() const
 	case PlayerState::Walk:      return U"Walk";
 	case PlayerState::Jump:      return U"Jump";
 	case PlayerState::Duck:      return U"Duck";
+	case PlayerState::Sliding:   return U"Sliding";  // ★ 追加
 	case PlayerState::Hit:       return U"Hit";
 	case PlayerState::Climb:     return U"Climb";
 	case PlayerState::Exploding: return U"Exploding";
@@ -1037,4 +1189,61 @@ void Player::deactivateFireball(const Vec2& position)
 			}
 		}
 	}
+}
+
+
+
+void Player::startSliding(PlayerDirection direction)
+{
+	if (!m_isGrounded) return;
+
+	m_isSliding = true;
+	m_slideTimer = 0.0;
+	m_slideDirection = direction;
+	m_slideSpeed = SLIDE_SPEED;
+
+	// しゃがみ状態にする
+	setState(PlayerState::Duck);
+
+	// スライディング方向に初速を与える
+	const double slideVelocity = (direction == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
+	m_velocity.x = slideVelocity;
+}
+
+void Player::updateSliding()
+{
+	const double deltaTime = Scene::DeltaTime();
+	m_slideTimer += deltaTime;
+
+	// スライディング速度の減速
+	m_slideSpeed *= SLIDE_DECELERATION;
+
+	// 速度を更新
+	const double slideVelocity = (m_slideDirection == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
+	m_velocity.x = slideVelocity;
+
+	// スライディング終了条件
+	if (m_slideTimer >= SLIDE_DURATION || m_slideSpeed < 50.0 || !m_isGrounded)
+	{
+		endSliding();
+	}
+}
+
+
+
+void Player::endSliding()
+{
+	m_isSliding = false;
+	m_slideTimer = 0.0;
+	m_slideSpeed = 0.0;
+
+	// スライディング終了後もDuck状態を維持
+	// 下キーが離されたときのみ通常の状態遷移を許可
+	// Duck状態のままにしておく
+}
+
+// ★ 前フレームから上に移動しているかの判定メソッドを追加
+bool Player::wasMovingUpward() const
+{
+	return m_position.y < m_previousPosition.y - 1.0;
 }
