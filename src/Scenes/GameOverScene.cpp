@@ -1,6 +1,7 @@
 ﻿#include "GameOverScene.hpp"
 #include "GameScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
+
 GameOverScene::GameOverScene()
 	: m_selectedButton(0)
 	, m_animationTimer(0.0)

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "Player.hpp"
-#include "Stage.hpp"
+#include "../Player/Player.hpp"
+#include "../Stages/Stage.hpp"
 class CoinSystem
 {
 public:

@@ -1,14 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -136,98 +128,9 @@
     <Filter Include="Resource Files\engine\font\min">
       <UniqueIdentifier>{1b103960-f11a-4515-b4f1-f59333ce00d9}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Game.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GameScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneManagers.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TitleScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Application.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SplashScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="OptionScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CreditScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CharacterSelectScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Player.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Stage.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="EnemyBase.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NormalSlime.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HUDSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CoinSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="StarSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ResultScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GameOverScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SpikeSlime.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Ladybug.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SlimeBlock.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Saw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Bee.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Fly.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BlockSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CollisionSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DayNightSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <Filter Include="src">
+      <UniqueIdentifier>{4bc0fd4c-74e2-43ad-b66b-a0c6b9ac8db1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\icon.ico">
@@ -890,107 +793,6 @@
     </Xml>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Game.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneBase.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneManagers.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TitleScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GameScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Application.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SplashScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="OptionScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CreditScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CharacterSelectScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PlayerColor.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Player.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Stage.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyBase.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NormalSlime.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HUDSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CoinSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StarSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ResultScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GameOverScene.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SpikeSlime.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Ladybug.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SlimeBlock.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Saw.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Bee.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Fly.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundManager.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="BlockSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CollisionSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ShaderEffects.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DayNightSystem.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyFactory.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <FxCompile Include="App\Shaders\Glow.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
@@ -1006,5 +808,198 @@
     <FxCompile Include="App\Shaders\DayNight.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stdafx.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\BlockSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\CoinSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\CollisionSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\DayNightSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\HUDSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\StarSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Stages\Stage.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Sound\SoundManager.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\CharacterSelectScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\CreditScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\GameOverScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\GameScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\OptionScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\ResultScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\SplashScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\TitleScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Player\Player.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\Bee.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\EnemyBase.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\Fly.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\Ladybug.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\NormalSlime.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\Saw.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\SlimeBlock.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Enemies\SpikeSlime.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Game.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\SceneManagers.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\App\Application.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\stdafx.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\BlockSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\CoinSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\CollisionSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\DayNightSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\HUDSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\StarSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Stages\Stage.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Sound\SoundManager.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\CharacterSelectScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\CreditScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\GameOverScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\GameScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\OptionScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\ResultScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\SplashScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\TitleScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Player\Player.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Player\PlayerColor.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\Bee.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\EnemyBase.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\EnemyFactory.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\Fly.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\Ladybug.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\NormalSlime.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\Saw.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\SlimeBlock.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Enemies\SpikeSlime.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Effects\ShaderEffects.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Game.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\SceneBase.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\SceneManagers.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\App\Application.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

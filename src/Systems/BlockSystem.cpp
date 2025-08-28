@@ -1,7 +1,7 @@
 ﻿#include "BlockSystem.hpp"
-#include "Player.hpp"
-#include "Stage.hpp"
-#include "SoundManager.hpp"
+#include "../Player/Player.hpp"
+#include "../Stages/Stage.hpp"
+#include "../Sound/SoundManager.hpp"
 
 BlockSystem::BlockSystem()
 	: m_coinsFromBlocks(0)

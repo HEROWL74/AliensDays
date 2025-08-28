@@ -1,5 +1,5 @@
 ﻿#include "CharacterSelectScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 // 静的変数の定義
 PlayerColor CharacterSelectScene::s_selectedPlayerColor = PlayerColor::Green;

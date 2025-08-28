@@ -115,41 +115,6 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Application.cpp" />
-    <ClCompile Include="Bee.cpp" />
-    <ClCompile Include="BlockSystem.cpp" />
-    <ClCompile Include="CharacterSelectScene.cpp" />
-    <ClCompile Include="CoinSystem.cpp" />
-    <ClCompile Include="CollisionSystem.cpp" />
-    <ClCompile Include="CreditScene.cpp" />
-    <ClCompile Include="DayNightSystem.cpp" />
-    <ClCompile Include="EnemyBase.cpp" />
-    <ClCompile Include="Fly.cpp" />
-    <ClCompile Include="Game.cpp" />
-    <ClCompile Include="GameOverScene.cpp" />
-    <ClCompile Include="GameScene.cpp" />
-    <ClCompile Include="HUDSystem.cpp" />
-    <ClCompile Include="Ladybug.cpp" />
-    <ClCompile Include="NormalSlime.cpp" />
-    <ClCompile Include="OptionScene.cpp" />
-    <ClCompile Include="Player.cpp" />
-    <ClCompile Include="ResultScene.cpp" />
-    <ClCompile Include="Saw.cpp" />
-    <ClCompile Include="SlimeBlock.cpp" />
-    <ClCompile Include="SoundManager.cpp" />
-    <ClCompile Include="SpikeSlime.cpp" />
-    <ClCompile Include="SplashScene.cpp" />
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="SceneManagers.cpp" />
-    <ClCompile Include="Stage.cpp" />
-    <ClCompile Include="StarSystem.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="TitleScene.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
     <Image Include="App\engine\texture\box-shadow\16.png" />
     <Image Include="App\engine\texture\box-shadow\256.png" />
@@ -353,41 +318,6 @@
     <Xml Include="App\example\xml\test.xml" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Application.hpp" />
-    <ClInclude Include="Bee.hpp" />
-    <ClInclude Include="BlockSystem.hpp" />
-    <ClInclude Include="CharacterSelectScene.hpp" />
-    <ClInclude Include="CoinSystem.hpp" />
-    <ClInclude Include="CollisionSystem.hpp" />
-    <ClInclude Include="CreditScene.hpp" />
-    <ClInclude Include="DayNightSystem.hpp" />
-    <ClInclude Include="EnemyBase.hpp" />
-    <ClInclude Include="EnemyFactory.hpp" />
-    <ClInclude Include="Fly.hpp" />
-    <ClInclude Include="Game.hpp" />
-    <ClInclude Include="GameOverScene.hpp" />
-    <ClInclude Include="GameScene.hpp" />
-    <ClInclude Include="HUDSystem.hpp" />
-    <ClInclude Include="Ladybug.hpp" />
-    <ClInclude Include="NormalSlime.hpp" />
-    <ClInclude Include="OptionScene.hpp" />
-    <ClInclude Include="Player.hpp" />
-    <ClInclude Include="PlayerColor.hpp" />
-    <ClInclude Include="ResultScene.hpp" />
-    <ClInclude Include="Saw.hpp" />
-    <ClInclude Include="SceneBase.hpp" />
-    <ClInclude Include="SceneManagers.hpp" />
-    <ClInclude Include="ShaderEffects.hpp" />
-    <ClInclude Include="SlimeBlock.hpp" />
-    <ClInclude Include="SoundManager.hpp" />
-    <ClInclude Include="SpikeSlime.hpp" />
-    <ClInclude Include="SplashScene.hpp" />
-    <ClInclude Include="Stage.hpp" />
-    <ClInclude Include="StarSystem.hpp" />
-    <ClInclude Include="stdafx.h" />
-    <ClInclude Include="TitleScene.hpp" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">
       <FileType>Document</FileType>
     </None>
@@ -503,6 +433,73 @@
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PS</EntryPointName>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\App\Application.cpp" />
+    <ClCompile Include="src\Core\Game.cpp" />
+    <ClCompile Include="src\Core\SceneManagers.cpp" />
+    <ClCompile Include="src\Enemies\Bee.cpp" />
+    <ClCompile Include="src\Enemies\EnemyBase.cpp" />
+    <ClCompile Include="src\Enemies\Fly.cpp" />
+    <ClCompile Include="src\Enemies\Ladybug.cpp" />
+    <ClCompile Include="src\Enemies\NormalSlime.cpp" />
+    <ClCompile Include="src\Enemies\Saw.cpp" />
+    <ClCompile Include="src\Enemies\SlimeBlock.cpp" />
+    <ClCompile Include="src\Enemies\SpikeSlime.cpp" />
+    <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\Player\Player.cpp" />
+    <ClCompile Include="src\Scenes\CharacterSelectScene.cpp" />
+    <ClCompile Include="src\Scenes\CreditScene.cpp" />
+    <ClCompile Include="src\Scenes\GameOverScene.cpp" />
+    <ClCompile Include="src\Scenes\GameScene.cpp" />
+    <ClCompile Include="src\Scenes\OptionScene.cpp" />
+    <ClCompile Include="src\Scenes\ResultScene.cpp" />
+    <ClCompile Include="src\Scenes\SplashScene.cpp" />
+    <ClCompile Include="src\Scenes\TitleScene.cpp" />
+    <ClCompile Include="src\Sound\SoundManager.cpp" />
+    <ClCompile Include="src\Stages\Stage.cpp" />
+    <ClCompile Include="src\stdafx.cpp" />
+    <ClCompile Include="src\Systems\BlockSystem.cpp" />
+    <ClCompile Include="src\Systems\CoinSystem.cpp" />
+    <ClCompile Include="src\Systems\CollisionSystem.cpp" />
+    <ClCompile Include="src\Systems\DayNightSystem.cpp" />
+    <ClCompile Include="src\Systems\HUDSystem.cpp" />
+    <ClCompile Include="src\Systems\StarSystem.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\App\Application.hpp" />
+    <ClInclude Include="src\Core\Game.hpp" />
+    <ClInclude Include="src\Core\SceneBase.hpp" />
+    <ClInclude Include="src\Core\SceneManagers.hpp" />
+    <ClInclude Include="src\Effects\ShaderEffects.hpp" />
+    <ClInclude Include="src\Enemies\Bee.hpp" />
+    <ClInclude Include="src\Enemies\EnemyBase.hpp" />
+    <ClInclude Include="src\Enemies\EnemyFactory.hpp" />
+    <ClInclude Include="src\Enemies\Fly.hpp" />
+    <ClInclude Include="src\Enemies\Ladybug.hpp" />
+    <ClInclude Include="src\Enemies\NormalSlime.hpp" />
+    <ClInclude Include="src\Enemies\Saw.hpp" />
+    <ClInclude Include="src\Enemies\SlimeBlock.hpp" />
+    <ClInclude Include="src\Enemies\SpikeSlime.hpp" />
+    <ClInclude Include="src\Player\Player.hpp" />
+    <ClInclude Include="src\Player\PlayerColor.hpp" />
+    <ClInclude Include="src\Scenes\CharacterSelectScene.hpp" />
+    <ClInclude Include="src\Scenes\CreditScene.hpp" />
+    <ClInclude Include="src\Scenes\GameOverScene.hpp" />
+    <ClInclude Include="src\Scenes\GameScene.hpp" />
+    <ClInclude Include="src\Scenes\OptionScene.hpp" />
+    <ClInclude Include="src\Scenes\ResultScene.hpp" />
+    <ClInclude Include="src\Scenes\SplashScene.hpp" />
+    <ClInclude Include="src\Scenes\TitleScene.hpp" />
+    <ClInclude Include="src\Sound\SoundManager.hpp" />
+    <ClInclude Include="src\Stages\Stage.hpp" />
+    <ClInclude Include="src\stdafx.h" />
+    <ClInclude Include="src\Systems\BlockSystem.hpp" />
+    <ClInclude Include="src\Systems\CoinSystem.hpp" />
+    <ClInclude Include="src\Systems\CollisionSystem.hpp" />
+    <ClInclude Include="src\Systems\DayNightSystem.hpp" />
+    <ClInclude Include="src\Systems\HUDSystem.hpp" />
+    <ClInclude Include="src\Systems\StarSystem.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "SceneBase.hpp"
-#include "PlayerColor.hpp"  // 共通のPlayerColorヘッダーをインクルード
+#include "../Core/SceneBase.hpp"
+#include "../Player/PlayerColor.hpp"  // 共通のPlayerColorヘッダーをインクルード
 
 class CharacterSelectScene final : public SceneBase
 {

@@ -1,7 +1,7 @@
 ﻿#include "GameScene.hpp"
 #include "CharacterSelectScene.hpp"  // プレイヤーカラー取得のため
-#include "SoundManager.hpp"
-#include "CollisionSystem.hpp"
+#include "../Sound/SoundManager.hpp"
+#include "../Systems/CollisionSystem.hpp"
 // 静的変数の定義
 StageNumber GameScene::s_nextStageNumber = StageNumber::Stage1;
 StageNumber GameScene::s_gameOverStage = StageNumber::Stage1;  // 追加

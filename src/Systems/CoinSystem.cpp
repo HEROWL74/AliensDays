@@ -1,5 +1,5 @@
 ﻿#include "CoinSystem.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 CoinSystem::CoinSystem()
 	: m_collectedCoinsCount(0)

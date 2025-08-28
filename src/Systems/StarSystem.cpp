@@ -1,5 +1,5 @@
 ﻿#include "StarSystem.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 StarSystem::StarSystem()
 	: m_collectedStarsCount(0)

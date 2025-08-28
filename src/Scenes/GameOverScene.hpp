@@ -1,8 +1,8 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "SceneBase.hpp"
-#include "Stage.hpp"
-#include "PlayerColor.hpp"
+#include "../Core/SceneBase.hpp"
+#include "../Stages/Stage.hpp"
+#include "../Player/PlayerColor.hpp"
 
 class GameOverScene final : public SceneBase
 {

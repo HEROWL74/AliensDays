@@ -1,5 +1,5 @@
 ﻿#include <Siv3D.hpp>
-#include "Game.hpp"
+#include "Core/Game.hpp"
 
 void Main()
 {
