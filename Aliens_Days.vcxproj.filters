@@ -207,11 +207,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="App\Resource.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="App\dll\soundtouch\COPYING.TXT">
       <Filter>Resource Files\dll\soundtouch</Filter>
     </Text>
@@ -752,6 +747,21 @@
     <None Include="App\engine\shader\glsl\quad_warp.frag">
       <Filter>Resource Files\engine\shader\glsl</Filter>
     </None>
+    <None Include="App\Stages\Stage2.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="App\Stages\Stage3.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="App\Stages\Stage4.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="App\Stages\Stage5.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="App\Stages\Stage6.json">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Media Include="App\example\test.mp3">
@@ -1000,5 +1010,10 @@
     <CopyFileToFolders Include="App\Stages\Stage1.json">
       <Filter>Resource Files</Filter>
     </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="App\Resource.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
