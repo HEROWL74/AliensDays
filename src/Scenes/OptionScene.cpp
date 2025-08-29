@@ -1,5 +1,15 @@
 ﻿#include "OptionScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Option, [] {
+			return std::make_unique<OptionScene>();
+		});
+		return true;
+		}();
+}
 
 OptionScene::OptionScene()
 	: m_selectedItem(0)

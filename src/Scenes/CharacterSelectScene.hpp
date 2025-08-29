@@ -31,8 +31,8 @@ private:
 	double m_selectionTimer;
 
 	// ボタン
-	RectF m_selectButtonRect;
-	RectF m_backButtonRect;
+	RectF m_selectButtonRect{};
+	RectF m_backButtonRect{};
 	bool m_selectButtonHovered;
 	bool m_backButtonHovered;
 

@@ -1,6 +1,16 @@
 ﻿#include "GameOverScene.hpp"
 #include "GameScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::GameOver, [] {
+			return std::make_unique<GameOverScene>();
+		});
+		return true;
+		}();
+}
 
 GameOverScene::GameOverScene()
 	: m_selectedButton(0)

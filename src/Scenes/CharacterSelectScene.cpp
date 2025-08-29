@@ -1,5 +1,15 @@
 ﻿#include "CharacterSelectScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::CharacterSelect, [] {
+			return std::make_unique<CharacterSelectScene>();
+		});
+		return true;
+		}();
+}
 
 // 静的変数の定義
 PlayerColor CharacterSelectScene::s_selectedPlayerColor = PlayerColor::Green;
