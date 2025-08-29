@@ -9,27 +9,23 @@
 #include "../Scenes/ResultScene.hpp"
 #include "../Scenes/SplashScene.hpp"
 
+std::unordered_map<SceneType, SceneFactory::CreatorFunc>& SceneFactory::getRegistry()
+{
+	static std::unordered_map<SceneType, CreatorFunc> registry;
+	return registry;
+}
+
+void SceneFactory::registerScene(SceneType type, CreatorFunc creator)
+{
+	getRegistry()[type] = std::move(creator);
+}
+
 std::unique_ptr<SceneBase> SceneFactory::create(SceneType type)
 {
-	switch (type)
+	auto& registry = getRegistry();
+	if (auto it = registry.find(type); it != registry.end())
 	{
-	case SceneType::Title:
-		return std::make_unique<TitleScene>();
-	case SceneType::Game:
-		return std::make_unique<GameScene>();
-	case SceneType::CharacterSelect:
-		return std::make_unique<CharacterSelectScene>();
-	case SceneType::Option:
-		return std::make_unique<OptionScene>();
-	case SceneType::Credit:
-		return std::make_unique<CreditScene>();
-	case SceneType::GameOver:
-		return std::make_unique<GameOverScene>();
-	case SceneType::Result:
-		return std::make_unique<ResultScene>();
-	case SceneType::Splash:
-		return std::make_unique<SplashScene>();
-	default:
-		return nullptr;
+		return it->second(); //登録したらインスタンス生成
 	}
+	throw std::runtime_error("Unknown SceneType");
 }

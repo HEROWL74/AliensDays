@@ -1,5 +1,15 @@
 ﻿#include "CreditScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Credit, [] {
+			return std::make_unique<CreditScene>();
+		});
+		return true;
+		}();
+}
 
 CreditScene::CreditScene()
 	: m_scrollOffset(0.0)

@@ -1,5 +1,15 @@
 ﻿#include "SplashScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Splash, [] {
+			return std::make_unique<SplashScene>();
+		});
+		return true;
+		}();
+}
 
 SplashScene::SplashScene()
 	: m_timer(0.0)

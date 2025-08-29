@@ -1,5 +1,15 @@
 ﻿#include "ResultScene.hpp"
 #include "GameScene.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Result, [] {
+			return std::make_unique<ResultScene>();
+		});
+		return true;
+		}();
+}
 
 ResultScene::ResultScene()
 	: m_selectedButton(0)

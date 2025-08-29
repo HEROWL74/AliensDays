@@ -2,6 +2,16 @@
 #include "CharacterSelectScene.hpp"  // プレイヤーカラー取得のため
 #include "../Sound/SoundManager.hpp"
 #include "../Systems/CollisionSystem.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Game, [] {
+			return std::make_unique<GameScene>();
+		});
+		return true;
+		}();
+}
 
 // 静的変数の定義
 StageNumber GameScene::s_nextStageNumber = StageNumber::Stage1;
