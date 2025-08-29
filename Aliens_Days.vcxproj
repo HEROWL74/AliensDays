@@ -143,9 +143,6 @@
     <Image Include="App\icon.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="App\Resource.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <Text Include="App\dll\soundtouch\COPYING.TXT" />
     <Text Include="App\engine\font\fontawesome\LICENSE.txt" />
     <Text Include="App\engine\soundfont\GMGSx.sf2.txt" />
@@ -307,6 +304,11 @@
       <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</TreatOutputAsContent>
       <DeploymentContent>true</DeploymentContent>
     </CopyFileToFolders>
+    <None Include="App\Stages\Stage2.json" />
+    <None Include="App\Stages\Stage3.json" />
+    <None Include="App\Stages\Stage4.json" />
+    <None Include="App\Stages\Stage5.json" />
+    <None Include="App\Stages\Stage6.json" />
   </ItemGroup>
   <ItemGroup>
     <Media Include="App\example\shot.mp3" />
@@ -439,8 +441,8 @@
     <ClCompile Include="src\Scenes\ResultScene.cpp" />
     <ClCompile Include="src\Scenes\SplashScene.cpp" />
     <ClCompile Include="src\Scenes\TitleScene.cpp">
-  <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-  <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\Sound\SoundManager.cpp" />
     <ClCompile Include="src\Stages\Stage.cpp" />
@@ -516,6 +518,9 @@
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PS</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="App\Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
