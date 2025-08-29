@@ -1,5 +1,15 @@
 ﻿#include "TitleScene.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Core/SceneFactory.hpp"
+
+namespace {
+	const bool registered = [] {
+		SceneFactory::registerScene(SceneType::Title, [] {
+			return std::make_unique<TitleScene>();
+		});
+		return true;
+	}();
+}
 
 TitleScene::TitleScene()
 	: m_nextScene(none)
