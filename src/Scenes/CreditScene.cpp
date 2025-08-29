@@ -1,5 +1,5 @@
 ﻿#include "CreditScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 CreditScene::CreditScene()
 	: m_scrollOffset(0.0)

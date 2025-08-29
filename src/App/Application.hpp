@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include <memory>
-#include "SceneManagers.hpp"
+#include "../Core/SceneManagers.hpp"
 
 class Application
 {

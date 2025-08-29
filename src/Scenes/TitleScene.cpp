@@ -1,5 +1,5 @@
 ﻿#include "TitleScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 TitleScene::TitleScene()
 	: m_nextScene(none)

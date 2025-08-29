@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
-#include "SceneBase.hpp"
+#include "../Core/SceneBase.hpp"
 
 class OptionScene final : public SceneBase
 {

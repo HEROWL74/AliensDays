@@ -2,6 +2,7 @@
 #include "CharacterSelectScene.hpp"  // プレイヤーカラー取得のため
 #include "../Sound/SoundManager.hpp"
 #include "../Systems/CollisionSystem.hpp"
+
 // 静的変数の定義
 StageNumber GameScene::s_nextStageNumber = StageNumber::Stage1;
 StageNumber GameScene::s_gameOverStage = StageNumber::Stage1;  // 追加
@@ -12,12 +13,12 @@ PlayerColor GameScene::s_resultPlayerColor = PlayerColor::Green;
 bool GameScene::s_shouldLoadNextStage = false;
 bool GameScene::s_shouldRetryStage = false;
 
-GameScene::GameScene()
+GameScene::GameScene(StageNumber stage)
 	: m_nextScene(none)
 	, m_gameTime(0.0)
 	, m_player(nullptr)
 	, m_stage(nullptr)
-	, m_currentStageNumber(StageNumber::Stage1)
+	, m_currentStageNumber(stage)
 	, m_goalReached(false)
 	, m_goalTimer(0.0)
 	, m_isLastStage(false)
@@ -791,224 +792,39 @@ void GameScene::initEnemies()
 {
 	m_enemies.clear();
 
-	const double BLOCK_SIZE = 64.0;
-	const double GROUND_LEVEL = 12.0 * BLOCK_SIZE;
+	const String stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
 
-	//プレイヤーのスタート地点から十分離れた位置に敵を配置
-	// 1ブロック基準で配置座標を計算
-
-	switch (m_currentStageNumber)
+	if (!FileSystem::Exists(stageFile))
 	{
-	case StageNumber::Stage1:
-		// Stage1: 草原ステージ - 1ブロック基準での配置
+		Print << U"カレントパス: " << FileSystem::CurrentDirectory();
+		Print << U"チェックしているパス: " << stageFile;
+		Print << U"Not find Stage files";
+		return;
+	}
 
-		// 序盤エリア (12-24ブロック目)
-		addEnemy(spawnEnemy(U"Fly", Vec2{ 19 * BLOCK_SIZE, 8 * BLOCK_SIZE }));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(12 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(16 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Fly>(Vec2(19 * BLOCK_SIZE, 8 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(22 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
+	const JSON stageData = JSON::Load(stageFile);
 
-		// 中間エリア (25-44ブロック目)
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(25 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(28 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(31 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(34 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(37 * BLOCK_SIZE, 7 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<NormalSlime>(Vec2(40 * BLOCK_SIZE, GROUND_LEVEL)));
+	if (!stageData)
+	{
+		Print << U"Failed to load json: " << stageFile;
+		return;
+	}
 
-		// 後半エリア (45-62ブロック目)
-		addEnemy(std::make_unique<Fly>(Vec2(44 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(47 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(50 * BLOCK_SIZE, 6 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(53 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(56 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(59 * BLOCK_SIZE, 9 * BLOCK_SIZE))); // プラットフォーム上
+	for (const auto& enemyEntry : stageData.arrayView())
+	{
+		String type = enemyEntry[U"type"].getString();
+		double x = enemyEntry[U"x"].get<double>();
+		double y = enemyEntry[U"y"].get<double>();
 
-		// 終盤エリア (63-75ブロック目)
-		addEnemy(std::make_unique<Fly>(Vec2(62 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(66 * BLOCK_SIZE, 4 * BLOCK_SIZE))); // 高いプラットフォーム上
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(69 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(72 * BLOCK_SIZE, 6 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(73 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
-		break;
-
-	case StageNumber::Stage2:
-		// Stage2: 砂漠ステージ - 1ブロック基準での配置
-
-		addEnemy(std::make_unique<NormalSlime>(Vec2(14 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(17 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(20 * BLOCK_SIZE, 11 * BLOCK_SIZE))); // 低いプラットフォーム
-		addEnemy(std::make_unique<Fly>(Vec2(23 * BLOCK_SIZE, 7 * BLOCK_SIZE)));
-
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(27 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(30 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(33 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(36 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(39 * BLOCK_SIZE, 7 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(42 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(45 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Bee>(Vec2(48 * BLOCK_SIZE, 5 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(51 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(55 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Fly>(Vec2(58 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(61 * BLOCK_SIZE, 10 * BLOCK_SIZE))); // プラットフォーム上
-
-		addEnemy(std::make_unique<Bee>(Vec2(64 * BLOCK_SIZE, 5 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(67 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Ladybug>(Vec2(70 * BLOCK_SIZE, 8 * BLOCK_SIZE))); // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(73 * BLOCK_SIZE, 6 * BLOCK_SIZE)));
-		break;
-
-	case StageNumber::Stage3:
-		// Stage3: 魔法の森 - 高難易度、飛行敵多め
-
-		// 序盤エリア (800-1600px) - 魔法の森の入口
-		addEnemy(std::make_unique<NormalSlime>(Vec2(1000.0, 768.0)));  // 地面
-		addEnemy(std::make_unique<Bee>(Vec2(1200.0, 350.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1400.0, 576.0)));   // プラットフォーム上
-
-		// 中間エリア前半 (1600-2400px) - 飛行敵中心
-		addEnemy(std::make_unique<Fly>(Vec2(1600.0, 400.0)));          // 空中
-		addEnemy(std::make_unique<Ladybug>(Vec2(1800.0, 448.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(2000.0, 320.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2200.0, 768.0)));   // 地面
-
-		// 中間エリア後半 (2400-3200px) - Saw初登場
-		addEnemy(std::make_unique<Fly>(Vec2(2400.0, 380.0)));          // 空中
-		addEnemy(std::make_unique<Saw>(Vec2(2600.0, 768.0)));          // 地面（危険な敵）
-		addEnemy(std::make_unique<Ladybug>(Vec2(2800.0, 512.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(3000.0, 300.0)));          // 空中
-
-		// 後半エリア (3200-4000px) - 混合配置
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(3200.0, 576.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(3400.0, 350.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3600.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Bee>(Vec2(3800.0, 280.0)));          // 空中
-
-		// 終盤エリア (4000-4800px) - 最高難度
-		addEnemy(std::make_unique<Saw>(Vec2(4000.0, 448.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(4200.0, 768.0)));      // 地面
-		addEnemy(std::make_unique<Fly>(Vec2(4400.0, 320.0)));          // 空中
-		addEnemy(std::make_unique<Bee>(Vec2(4600.0, 250.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4800.0, 512.0)));   // プラットフォーム上
-		break;
-
-	case StageNumber::Stage4:
-		// Stage4: 雪山ステージ - 危険な敵の組み合わせ、滑りやすい地形を想定
-
-		// 序盤エリア (800-1600px) - 雪山の麓
-		addEnemy(std::make_unique<NormalSlime>(Vec2(1000.0, 768.0)));  // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(1200.0, 768.0)));          // 地面（早めに危険）
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1400.0, 640.0)));   // プラットフォーム上
-
-		// 中間エリア前半 (1600-2400px) - 山腹
-		addEnemy(std::make_unique<Fly>(Vec2(1600.0, 450.0)));          // 空中
-		addEnemy(std::make_unique<Bee>(Vec2(1800.0, 380.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2000.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(2200.0, 512.0)));          // プラットフォーム上
-
-		// 中間エリア後半 (2400-3200px) - 氷の洞窟
-		addEnemy(std::make_unique<Ladybug>(Vec2(2400.0, 448.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(2600.0, 350.0)));          // 空中
-		addEnemy(std::make_unique<Bee>(Vec2(2800.0, 320.0)));          // 空中
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(3000.0, 768.0)));   // 地面
-
-		// 後半エリア (3200-4000px) - 山頂付近
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3200.0, 576.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Saw>(Vec2(3400.0, 768.0)));          // 地面
-		addEnemy(std::make_unique<Bee>(Vec2(3600.0, 280.0)));          // 空中
-		addEnemy(std::make_unique<Ladybug>(Vec2(3800.0, 384.0)));      // プラットフォーム上
-
-		// 終盤エリア (4000-5000px) - 山頂
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4000.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Bee>(Vec2(4200.0, 250.0)));          // 空中
-		addEnemy(std::make_unique<Saw>(Vec2(4400.0, 576.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(4600.0, 448.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(4800.0, 320.0)));          // 空中
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(4900.0, 768.0)));   // 地面
-		break;
-
-	case StageNumber::Stage5:
-		// Stage5: 古代遺跡 - 非常に高難易度、敵密度最大
-
-		// 序盤エリア (800-1600px) - 遺跡の入口
-		addEnemy(std::make_unique<Saw>(Vec2(900.0, 768.0)));           // 地面（即座に危険）
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1100.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(1300.0, 640.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(1500.0, 350.0)));          // 空中
-
-		// 中間エリア前半 (1600-2400px) - 遺跡内部
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1700.0, 512.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Saw>(Vec2(1900.0, 768.0)));          // 地面
-		addEnemy(std::make_unique<Ladybug>(Vec2(2100.0, 448.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(2300.0, 768.0)));   // 地面
-
-		// 中間エリア後半 (2400-3200px) - 古代の罠
-		addEnemy(std::make_unique<Fly>(Vec2(2500.0, 380.0)));          // 空中
-		addEnemy(std::make_unique<Bee>(Vec2(2700.0, 300.0)));          // 空中
-		addEnemy(std::make_unique<Saw>(Vec2(2900.0, 576.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 320.0)));   // 高いプラットフォーム上
-
-		// 後半エリア (3200-4000px) - 宝物庫への道
-		addEnemy(std::make_unique<Bee>(Vec2(3300.0, 280.0)));          // 空中
-		addEnemy(std::make_unique<Saw>(Vec2(3500.0, 768.0)));          // 地面
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3700.0, 448.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(3900.0, 768.0)));      // 地面
-
-		// 終盤エリア (4000-5000px) - 宝物庫
-		addEnemy(std::make_unique<Fly>(Vec2(4100.0, 350.0)));          // 空中
-		addEnemy(std::make_unique<Saw>(Vec2(4300.0, 512.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(4500.0, 250.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4700.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(4900.0, 384.0)));          // プラットフォーム上
-		break;
-
-	case StageNumber::Stage6:
-		// Stage6: 地下洞窟（最終ステージ） - 全敵種混在の究極難易度
-
-		// 序盤エリア (800-1600px) - 洞窟入口
-		addEnemy(std::make_unique<NormalSlime>(Vec2(900.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(1100.0, 768.0)));          // 地面
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1300.0, 576.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(1500.0, 350.0)));          // 空中
-
-		// 第1中間エリア (1600-2400px) - 地下第1層
-		addEnemy(std::make_unique<Fly>(Vec2(1700.0, 400.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(1900.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(2100.0, 512.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(2300.0, 448.0)));      // プラットフォーム上
-
-		// 第2中間エリア (2400-3200px) - 地下第2層
-		addEnemy(std::make_unique<Bee>(Vec2(2500.0, 300.0)));          // 空中
-		addEnemy(std::make_unique<Fly>(Vec2(2700.0, 380.0)));          // 空中
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(2900.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3100.0, 384.0)));   // プラットフォーム上
-
-		// 第3中間エリア (3200-4000px) - 地下第3層
-		addEnemy(std::make_unique<Saw>(Vec2(3300.0, 768.0)));          // 地面
-		addEnemy(std::make_unique<Bee>(Vec2(3500.0, 280.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(3700.0, 576.0)));   // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(3900.0, 768.0)));      // 地面
-
-		// 最終エリア (4000-5000px) - 最深部
-		addEnemy(std::make_unique<Saw>(Vec2(4100.0, 448.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Bee>(Vec2(4300.0, 250.0)));          // 空中
-		addEnemy(std::make_unique<SpikeSlime>(Vec2(4500.0, 768.0)));   // 地面
-		addEnemy(std::make_unique<Saw>(Vec2(4700.0, 512.0)));          // プラットフォーム上
-		addEnemy(std::make_unique<Ladybug>(Vec2(4900.0, 384.0)));      // プラットフォーム上
-		addEnemy(std::make_unique<Fly>(Vec2(5000.0, 320.0)));          // 空中
-		break;
-
-	default:
-		// フォールバック（Stage1と同じ配置）
-		addEnemy(std::make_unique<NormalSlime>(Vec2(12 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(16 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<Fly>(Vec2(19 * BLOCK_SIZE, 8 * BLOCK_SIZE)));
-		addEnemy(std::make_unique<SlimeBlock>(Vec2(25 * BLOCK_SIZE, GROUND_LEVEL)));
-		addEnemy(std::make_unique<NormalSlime>(Vec2(31 * BLOCK_SIZE, GROUND_LEVEL)));
-		break;
+		try
+		{
+			addEnemy(spawnEnemy(type, Vec2{ x,y }));
+		}
+		catch (const std::exception& e)
+		{
+			const String message = Unicode::FromUTF8(e.what());
+			Print << U"Failed to generate enemy: " << message;
+		}
 	}
 }
 
@@ -1960,7 +1776,7 @@ void GameScene::drawDayNightEffects() const
         const ColorF warningColor = ColorF(1.0, 0.3, 0.3, pulse);
         
         Font warningFont(24, Typeface::Bold);
-        const String warningText = U"⚠ DANGER! Enemies are aggressive!";
+        const String warningText = U"DANGER! Enemies are aggressive!";
         const Vec2 warningPos(Scene::Center().x - 150, 80);
         
         // 警告背景
@@ -1976,7 +1792,7 @@ void GameScene::drawDayNightEffects() const
         const int starsCollected = m_starSystem->getCollectedStarsCount();
         if (starsCollected > 0)
         {
-            const String bonusText = U"⭐×{} Time Bonus: +{}s"_fmt(
+            const String bonusText = U"star×{} Time Bonus: +{}s"_fmt(
                 starsCollected, 
                 starsCollected * 10  // STAR_TIME_BONUSと同じ値
             );

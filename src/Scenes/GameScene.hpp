@@ -130,7 +130,7 @@ private:
 	static bool s_shouldRetryStage;
 
 public:
-	GameScene();
+	explicit GameScene(StageNumber stage =StageNumber::Stage1);
 	~GameScene() override = default;
 
 	void init() override;

@@ -793,27 +793,24 @@
     </Xml>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\ChromaticAberration.hlsl">
+    <FxCompile Include="App\Shaders\Shockwave.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\DayNight.hlsl">
+    <FxCompile Include="App\Shaders\ChromaticAberration.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Glow.hlsl">
+    <FxCompile Include="App\Shaders\DayNight.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Shockwave.hlsl">
+    <FxCompile Include="App\Shaders\Glow.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Wave.hlsl">
+    <FxCompile Include="App\Shaders\Wave.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\stdafx.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\Systems\BlockSystem.cpp">
@@ -902,9 +899,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\stdafx.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\Systems\BlockSystem.hpp">
       <Filter>src</Filter>
     </ClInclude>
@@ -1001,5 +995,10 @@
     <ClInclude Include="src\App\Application.hpp">
       <Filter>src</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="App\Stages\Stage1.json">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>
