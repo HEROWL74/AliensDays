@@ -415,6 +415,7 @@
   <ItemGroup>
     <ClCompile Include="src\App\Application.cpp" />
     <ClCompile Include="src\Core\Game.cpp" />
+    <ClCompile Include="src\Core\SceneFactory.cpp" />
     <ClCompile Include="src\Core\SceneManagers.cpp" />
     <ClCompile Include="src\Enemies\Bee.cpp" />
     <ClCompile Include="src\Enemies\EnemyBase.cpp" />
@@ -457,7 +458,9 @@
     <ClInclude Include="src\App\Application.hpp" />
     <ClInclude Include="src\Core\Game.hpp" />
     <ClInclude Include="src\Core\SceneBase.hpp" />
+    <ClInclude Include="src\Core\SceneFactory.hpp" />
     <ClInclude Include="src\Core\SceneManagers.hpp" />
+    <ClInclude Include="src\Core\SceneType.hpp" />
     <ClInclude Include="src\Effects\ShaderEffects.hpp" />
     <ClInclude Include="src\Enemies\Bee.hpp" />
     <ClInclude Include="src\Enemies\EnemyBase.hpp" />

@@ -72,7 +72,7 @@ public:
 
 private:
 	// シーンのファクトリーメソッド
-	std::unique_ptr<SceneBase> createScene(SceneType sceneType);
+	//std::unique_ptr<SceneBase> createScene(SceneType sceneType);
 
 	// 宇宙エフェクト関連メソッド
 	void initializeSpaceTransition();
