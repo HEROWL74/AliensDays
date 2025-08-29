@@ -1,12 +1,6 @@
-﻿#include "SceneManagers.hpp"
-#include "../Scenes/SplashScene.hpp"
-#include "../Scenes/TitleScene.hpp"
-#include "../Scenes/CharacterSelectScene.hpp"
-#include "../Scenes/OptionScene.hpp"
-#include "../Scenes/CreditScene.hpp"
-#include "../Scenes/GameScene.hpp"
-#include "../Scenes/GameOverScene.hpp"
-#include "../Scenes/ResultScene.hpp"
+﻿//src/Core/SceneManager.cpp
+#include "SceneManagers.hpp"
+#include "../Core/SceneFactory.hpp"
 
 SceneManagers::SceneManagers()
 	: m_currentScene(nullptr)
@@ -26,7 +20,7 @@ SceneManagers::~SceneManagers()
 void SceneManagers::init(SceneType initialScene)
 {
 	m_currentSceneType = initialScene;
-	m_currentScene = createScene(initialScene);
+	m_currentScene = SceneFactory::create(initialScene);
 	if (m_currentScene)
 	{
 		m_currentScene->init();
@@ -137,7 +131,7 @@ void SceneManagers::changeScene(SceneType newScene)
 	}
 
 	m_currentSceneType = newScene;
-	m_currentScene = createScene(newScene);
+	m_currentScene = SceneFactory::create(newScene);
 
 	if (m_currentScene)
 	{
@@ -150,30 +144,6 @@ SceneType SceneManagers::getCurrentSceneType() const
 	return m_currentSceneType;
 }
 
-std::unique_ptr<SceneBase> SceneManagers::createScene(SceneType sceneType)
-{
-	switch (sceneType)
-	{
-	case SceneType::Splash:
-		return std::make_unique<SplashScene>();
-	case SceneType::Title:
-		return std::make_unique<TitleScene>();
-	case SceneType::CharacterSelect:
-		return std::make_unique<CharacterSelectScene>();
-	case SceneType::Option:
-		return std::make_unique<OptionScene>();
-	case SceneType::Credit:
-		return std::make_unique<CreditScene>();
-	case SceneType::Game:
-		return std::make_unique<GameScene>(StageNumber::Stage1);
-	case SceneType::GameOver:
-		return std::make_unique<GameOverScene>();
-	case SceneType::Result:
-		return std::make_unique<ResultScene>();
-	default:
-		return nullptr;
-	}
-}
 
 void SceneManagers::initializeSpaceTransition()
 {
