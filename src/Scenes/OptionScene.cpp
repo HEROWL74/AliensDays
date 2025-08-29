@@ -1,5 +1,5 @@
 ﻿#include "OptionScene.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 OptionScene::OptionScene()
 	: m_selectedItem(0)

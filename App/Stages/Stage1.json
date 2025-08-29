@@ -1,0 +1,112 @@
+[
+  {
+    "type": "Fly",
+    "x": 1216.0,
+    "y": 512.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 768.0,
+    "y": 768.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 1024.0,
+    "y": 768.0
+  },
+  {
+    "type": "Fly",
+    "x": 1216.0,
+    "y": 512.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 1408.0,
+    "y": 640.0
+  },
+  {
+    "type": "SlimeBlock",
+    "x": 1600.0,
+    "y": 768.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 1792.0,
+    "y": 512.0
+  },
+  {
+    "type": "Fly",
+    "x": 1984.0,
+    "y": 448.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 2176.0,
+    "y": 768.0
+  },
+  {
+    "type": "SlimeBlock",
+    "x": 2368.0,
+    "y": 448.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 2560.0,
+    "y": 768.0
+  },
+  {
+    "type": "Fly",
+    "x": 2816.0,
+    "y": 384.0
+  },
+  {
+    "type": "SlimeBlock",
+    "x": 3008.0,
+    "y": 768.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 3200.0,
+    "y": 384.0
+  },
+  {
+    "type": "Fly",
+    "x": 3392.0,
+    "y": 448.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 3584.0,
+    "y": 768.0
+  },
+  {
+    "type": "SlimeBlock",
+    "x": 3776.0,
+    "y": 576.0
+  },
+  {
+    "type": "Fly",
+    "x": 3968.0,
+    "y": 384.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 4224.0,
+    "y": 256.0
+  },
+  {
+    "type": "SlimeBlock",
+    "x": 4416.0,
+    "y": 768.0
+  },
+  {
+    "type": "NormalSlime",
+    "x": 4608.0,
+    "y": 384.0
+  },
+  {
+    "type": "Fly",
+    "x": 4672.0,
+    "y": 448.0
+  }
+]

@@ -31,12 +31,13 @@ enum class BlockType
 // ステージ番号
 enum class StageNumber
 {
-	Stage1 = 1,
-	Stage2 = 2,
-	Stage3 = 3,
-	Stage4 = 4,
-	Stage5 = 5,
-	Stage6 = 6
+	None = 0,
+	Stage1,
+	Stage2,
+	Stage3,
+	Stage4,
+	Stage5,
+	Stage6
 };
 
 // ステージブロック情報

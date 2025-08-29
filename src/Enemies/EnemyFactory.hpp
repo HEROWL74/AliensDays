@@ -1,8 +1,10 @@
-﻿#pragma once
+﻿//src/Enemies/EnemyFactory.hpp
+#pragma once
 #include <Siv3D.hpp>
 #include <unordered_map>
 #include <functional>
 #include <memory>
+//ファクトリーパターンでEnemyKey作成
 
 class EnemyBase;
 

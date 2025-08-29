@@ -1,5 +1,5 @@
 ﻿#include "Application.hpp"
-#include "SoundManager.hpp"
+#include "../Sound/SoundManager.hpp"
 
 Application::Application()
 	: m_sceneManager(nullptr)

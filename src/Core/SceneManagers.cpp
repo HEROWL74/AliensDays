@@ -165,7 +165,7 @@ std::unique_ptr<SceneBase> SceneManagers::createScene(SceneType sceneType)
 	case SceneType::Credit:
 		return std::make_unique<CreditScene>();
 	case SceneType::Game:
-		return std::make_unique<GameScene>();
+		return std::make_unique<GameScene>(StageNumber::Stage1);
 	case SceneType::GameOver:
 		return std::make_unique<GameOverScene>();
 	case SceneType::Result:
