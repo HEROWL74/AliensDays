@@ -445,6 +445,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\Scenes\TutorialScene.cpp" />
     <ClCompile Include="src\Sound\SoundManager.cpp" />
     <ClCompile Include="src\Stages\Stage.cpp" />
     <ClCompile Include="src\Systems\BlockSystem.cpp" />
@@ -481,6 +482,7 @@
     <ClInclude Include="src\Scenes\ResultScene.hpp" />
     <ClInclude Include="src\Scenes\SplashScene.hpp" />
     <ClInclude Include="src\Scenes\TitleScene.hpp" />
+    <ClInclude Include="src\Scenes\TutorialScene.hpp" />
     <ClInclude Include="src\Sound\SoundManager.hpp" />
     <ClInclude Include="src\Stages\Stage.hpp" />
     <ClInclude Include="src\Systems\BlockSystem.hpp" />

@@ -22,4 +22,11 @@ public:
 
 	// シーンのクリーンアップ
 	virtual void cleanup() {}
+
+protected:
+	Optional<SceneType> m_requestedSceneChange;
+
+public:
+	Optional<SceneType> getRequestedSceneChange() const { return m_requestedSceneChange; }
+	void requestSceneChange(SceneType scene) { m_requestedSceneChange = scene; }
 };
