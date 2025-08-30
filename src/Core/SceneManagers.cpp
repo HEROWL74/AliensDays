@@ -99,6 +99,11 @@ void SceneManagers::update()
 			}
 		}
 	}
+
+	if (m_currentScene && m_currentScene->getRequestedSceneChange())
+	{
+		changeScene(m_currentScene->getRequestedSceneChange().value());
+	}
 }
 
 void SceneManagers::draw() const

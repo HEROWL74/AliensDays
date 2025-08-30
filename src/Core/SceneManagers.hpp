@@ -2,6 +2,7 @@
 #include <Siv3D.hpp>
 #include <memory>
 #include "SceneBase.hpp"
+#include "SceneFactory.hpp"
 
 // 宇宙エフェクト用の星パーティクル
 struct SpaceParticle

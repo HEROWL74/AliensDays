@@ -907,6 +907,12 @@
     <ClCompile Include="src\App\Application.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\Core\SceneFactory.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenes\TutorialScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Systems\BlockSystem.hpp">
@@ -1003,6 +1009,15 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\App\Application.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\SceneFactory.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\SceneType.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scenes\TutorialScene.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

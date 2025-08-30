@@ -112,6 +112,12 @@ void TitleScene::update()
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Game;
 	}
+
+
+	if (KeyT.down())
+	{
+		requestSceneChange(SceneType::Tutorial);
+	}
 }
 
 void TitleScene::draw() const
