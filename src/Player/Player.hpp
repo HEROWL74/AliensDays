@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "../Player/PlayerColor.hpp"
+#include "../Systems/TutorialEvents.hpp"
 
 // プレイヤーのアニメーション状態
 enum class PlayerState
@@ -140,6 +141,12 @@ private:
 	double m_jumpStateTimer;
 	static constexpr double JUMP_STATE_DURATION = 0.5; // ジャンプ状態を維持する時間
 
+	//チュートリアル用ブール
+	bool m_tutorialNotifiedMove = false;
+	bool m_tutorialNotifiedJump = false;
+	bool m_tutorialNotifiedStomp = false;
+	bool m_tutorialNotifiedFireball = false;
+
 public:
 	Player();
 	Player(PlayerColor color, const Vec2& startPosition);
@@ -231,6 +238,10 @@ public:
 			(!m_isGrounded && m_velocity.y < -50.0);
 	}
 
+	bool getTutorialNotifiedStomp() const { return m_tutorialNotifiedStomp; }
+	void setTutorialNotifiedStomp(bool notified) { m_tutorialNotifiedStomp = notified; }
+	bool getTutorialNotifiedFireball() const { return m_tutorialNotifiedFireball; }
+	void setTutorialNotifiedFireball(bool notified) { m_tutorialNotifiedFireball = notified; }
 
 private:
 	// 内部ヘルパーメソッド

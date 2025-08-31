@@ -802,41 +802,39 @@ void GameScene::initEnemies()
 {
 	m_enemies.clear();
 
-	const String stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
+	String stageFile;
+	if (m_currentStageNumber == StageNumber::Tutorial) {
+		stageFile = U"Stages/Tutorial.json";
+	}
+	else {
+		stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
+	}
 
-	if (!FileSystem::Exists(stageFile))
-	{
-		Print << U"カレントパス: " << FileSystem::CurrentDirectory();
-		Print << U"チェックしているパス: " << stageFile;
-		Print << U"Not find Stage files";
+	if (!FileSystem::Exists(stageFile)) {
+		Print << U"Not find Stage file: " << stageFile;
 		return;
 	}
 
 	const JSON stageData = JSON::Load(stageFile);
-
-	if (!stageData)
-	{
+	if (!stageData) {
 		Print << U"Failed to load json: " << stageFile;
 		return;
 	}
 
-	for (const auto& enemyEntry : stageData.arrayView())
-	{
+	for (const auto& enemyEntry : stageData.arrayView()) {
 		String type = enemyEntry[U"type"].getString();
 		double x = enemyEntry[U"x"].get<double>();
 		double y = enemyEntry[U"y"].get<double>();
 
-		try
-		{
+		try {
 			addEnemy(spawnEnemy(type, Vec2{ x,y }));
 		}
-		catch (const std::exception& e)
-		{
-			const String message = Unicode::FromUTF8(e.what());
-			Print << U"Failed to generate enemy: " << message;
+		catch (const std::exception& e) {
+			Print << U"Failed to generate enemy: " << Unicode::FromUTF8(e.what());
 		}
 	}
 }
+
 
 void GameScene::updateEnemies()
 {
@@ -1331,6 +1329,11 @@ void GameScene::handlePlayerStompEnemy(EnemyBase* enemy)
 	enemy->onStomp();
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_HIT);
 
+	if (!m_player->getTutorialNotifiedStomp()) {
+		m_player->setTutorialNotifiedStomp(true);
+		TutorialEmit(TutorialEvent::StompEnemy, enemy->getPosition());
+	}
+
 	// 衝撃波エフェクトを追加
 	if (m_shaderEffects && m_stage)
 	{
@@ -1374,6 +1377,11 @@ void GameScene::updateFireballEnemyCollision()
 				// 敵を撃破
 				enemy->onDestroy();
 
+				if (m_player && !m_player->getTutorialNotifiedFireball()) {
+					m_player->setTutorialNotifiedFireball(true);
+					TutorialEmit(TutorialEvent::FireballKill, enemy->getPosition());
+				}
+
 				// ファイアボールを無効化
 				m_player->deactivateFireball(fireball.position);
 
@@ -1392,7 +1400,6 @@ void GameScene::handleEnemyHitByFireball(EnemyBase* enemy, const Vec2& fireballP
 
 	// 敵を即座に死亡状態にする
 	enemy->onDestroy();
-
 	// ★ 敵の種類に応じた撃破エフェクトを生成
 	createFireballDestructionEffect(enemy->getPosition(), enemy->getType(), fireballPosition);
 }

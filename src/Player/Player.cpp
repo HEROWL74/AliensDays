@@ -426,6 +426,12 @@ void Player::handleInput()
 			double airControl = 0.12;
 			m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, airControl);
 		}
+
+		if (!m_tutorialNotifiedMove && Math::Abs(m_velocity.x) > (BLOCK_SIZE * 0.2))
+		{
+			m_tutorialNotifiedMove = true;
+			TutorialEmit(TutorialEvent::MoveLeftRight, m_position);
+		}
 	}
 	else if (!downPressed)
 	{
@@ -765,6 +771,10 @@ void Player::jump()
 	double jumpPower = baseJumpPower * m_stats.jumpPower;
 
 	m_velocity.y = -jumpPower;
+	if (!m_tutorialNotifiedJump /* && いまジャンプが成立した */) {
+		m_tutorialNotifiedJump = true;
+		TutorialEmit(TutorialEvent::Jump, m_position);
+	}
 	setState(PlayerState::Jump);
 	m_isGrounded = false;
 

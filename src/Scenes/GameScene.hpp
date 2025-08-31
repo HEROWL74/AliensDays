@@ -79,7 +79,7 @@ struct FireballDestructionEffect
 	}
 };
 
-class GameScene final : public SceneBase
+class GameScene: public SceneBase
 {
 private:
 	// 基本メンバー変数
@@ -158,6 +158,8 @@ public:
 	static void setNextStageMode() { s_shouldLoadNextStage = true; s_shouldRetryStage = false; }
 	static void setRetryMode() { s_shouldRetryStage = true; s_shouldLoadNextStage = false; }
 
+protected:
+	void addEnemy(std::unique_ptr<EnemyBase> enemy);
 private:
 	// ステージ関連
 	void loadStage(StageNumber stageNumber);
@@ -172,7 +174,6 @@ private:
 	void drawEnemies() const;
 	void updatePlayerEnemyCollision();
 	void updateEnemyStageCollision();
-	void addEnemy(std::unique_ptr<EnemyBase> enemy);
 
 	// ゴール関連
 	void updateGoalCheck();
