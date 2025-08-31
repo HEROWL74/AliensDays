@@ -309,6 +309,7 @@
     <None Include="App\Stages\Stage4.json" />
     <None Include="App\Stages\Stage5.json" />
     <None Include="App\Stages\Stage6.json" />
+    <None Include="App\Stages\Tutorial.json" />
   </ItemGroup>
   <ItemGroup>
     <Media Include="App\example\shot.mp3" />
@@ -491,6 +492,8 @@
     <ClInclude Include="src\Systems\DayNightSystem.hpp" />
     <ClInclude Include="src\Systems\HUDSystem.hpp" />
     <ClInclude Include="src\Systems\StarSystem.hpp" />
+    <ClInclude Include="src\Systems\TutorialEvents.hpp" />
+    <ClInclude Include="src\UI\TutorialPanel.hpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="App\Shaders\ChromaticAberration.hlsl">

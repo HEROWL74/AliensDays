@@ -169,8 +169,8 @@ void TitleScene::setupButtons()
 {
 	const double buttonWidth = 280.0;
 	const double buttonHeight = 80.0;
-	const double buttonSpacing = 100.0;
-	const Vec2 startPos = Vec2(Scene::Center().x - buttonWidth / 2, Scene::Center().y + 120);
+	const double buttonSpacing = 90.0;  // 少し間隔を狭める（5つ入るように）
+	const Vec2 startPos = Vec2(Scene::Center().x - buttonWidth / 2, Scene::Center().y + 80); // 少し上に移動
 
 	// ボタンデータの設定
 	m_buttons.clear();
@@ -181,21 +181,27 @@ void TitleScene::setupButtons()
 	startButton.action = ButtonAction::Start;
 	m_buttons.push_back(startButton);
 
+	ButtonData tutorialButton;
+	tutorialButton.text = U"TUTORIAL";
+	tutorialButton.rect = RectF(startPos.x, startPos.y + buttonSpacing, buttonWidth, buttonHeight);
+	tutorialButton.action = ButtonAction::Tutorial;
+	m_buttons.push_back(tutorialButton);
+
 	ButtonData optionButton;
 	optionButton.text = U"OPTION";
-	optionButton.rect = RectF(startPos.x, startPos.y + buttonSpacing, buttonWidth, buttonHeight);
+	optionButton.rect = RectF(startPos.x, startPos.y + buttonSpacing * 2, buttonWidth, buttonHeight);  // ★ 修正
 	optionButton.action = ButtonAction::Option;
 	m_buttons.push_back(optionButton);
 
 	ButtonData creditsButton;
 	creditsButton.text = U"CREDITS";
-	creditsButton.rect = RectF(startPos.x, startPos.y + buttonSpacing * 2, buttonWidth, buttonHeight);
+	creditsButton.rect = RectF(startPos.x, startPos.y + buttonSpacing * 3, buttonWidth, buttonHeight);  // ★ 修正
 	creditsButton.action = ButtonAction::Credits;
 	m_buttons.push_back(creditsButton);
 
 	ButtonData exitButton;
 	exitButton.text = U"EXIT";
-	exitButton.rect = RectF(startPos.x, startPos.y + buttonSpacing * 3, buttonWidth, buttonHeight);
+	exitButton.rect = RectF(startPos.x, startPos.y + buttonSpacing * 4, buttonWidth, buttonHeight);  // ★ 修正
 	exitButton.action = ButtonAction::Exit;
 	m_buttons.push_back(exitButton);
 }
@@ -392,6 +398,10 @@ void TitleScene::executeButton(int buttonIndex)
 	{
 	case ButtonAction::Start:
 		m_nextScene = SceneType::CharacterSelect;
+		break;
+
+	case ButtonAction::Tutorial:
+		m_nextScene = SceneType::Tutorial;
 		break;
 
 	case ButtonAction::Option:
