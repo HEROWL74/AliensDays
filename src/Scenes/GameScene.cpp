@@ -836,21 +836,21 @@ void GameScene::initEnemies()
 	m_enemies.clear();
 
 	String stageFile;
-	if (m_currentStageNumber == StageNumber::Tutorial) {
-		stageFile = U"Stages/Tutorial.json";
-	}
-	else {
-		stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
-	}
+	stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
+	
 
 	if (!FileSystem::Exists(stageFile)) {
+#ifdef _DEBUG
 		Print << U"Not find Stage file: " << stageFile;
+#endif
 		return;
 	}
 
 	const JSON stageData = JSON::Load(stageFile);
 	if (!stageData) {
+#ifdef _DEBUG
 		Print << U"Failed to load json: " << stageFile;
+#endif
 		return;
 	}
 
