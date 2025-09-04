@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include <memory>
+#include <functional>
 
 // 前方宣言
 class Player;
@@ -48,10 +49,12 @@ public:
 		double bounceAnimation;         // バウンスアニメーション用
 		double bounceTimer;             // バウンスタイマー
 		bool wasHit;                    // ヒットされたかのフラグ
+		bool wasHipDropDestroyed;       // ★ ヒップドロップで破壊されたかのフラグ
 
 		Block(const Vec2& pos, BlockType blockType)
 			: position(pos), type(blockType), state(BlockState::ACTIVE)
-			, bounceAnimation(0.0), bounceTimer(0.0), wasHit(false) {
+			, bounceAnimation(0.0), bounceTimer(0.0), wasHit(false)
+			, wasHipDropDestroyed(false) { // ★ 初期化に追加
 		}
 	};
 
@@ -78,6 +81,10 @@ public:
 
 	// ヒット判定関連
 	bool checkPlayerHitFromBelow(const Block& block, Player* player) const;
+	bool checkPlayerHipDropHit(const Block& block, Player* player) const;
+
+	std::function<void(const Vec2&)> m_hipDropDestructionCallback;
+	void setHipDropDestructionCallback(std::function<void(const Vec2&)> callback) { m_hipDropDestructionCallback = callback; }
 
 	// ステージ別のブロック配置
 	void generateBlocksForStage(StageNumber stageNumber);

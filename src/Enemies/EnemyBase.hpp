@@ -63,6 +63,12 @@ protected:
 	double m_effectTimer;
 	bool m_hasEffect;
 
+	// 変身状態
+	bool m_isTransformed;
+	int m_blackFireFrame;
+	double m_blackFireAnimTimer;
+	static constexpr double BLACKFIRE_FRAME_DURATION = 0.08; // フレーム切り替え時間
+
 public:
 	EnemyBase(EnemyType type, const Vec2& startPosition);
 	virtual ~EnemyBase() = default;
@@ -122,6 +128,30 @@ public:
 	virtual bool isDangerous() const { return m_isActive && m_isAlive; }
 	virtual bool canFly() const { return false; }
 	virtual bool hasSpikes() const { return false; }
+
+	// 変身メソッド
+	void transform() {
+		m_isTransformed = true;
+		m_blackFireFrame = 0;
+		m_blackFireAnimTimer = 0.0;
+	}
+	void untransform() {
+		m_isTransformed = false;
+	}
+	bool isTransformed() const { return m_isTransformed; }
+
+	// 黒い炎アニメーション更新
+	void updateBlackFireAnimation() {
+		if (!m_isTransformed) return;
+
+		m_blackFireAnimTimer += Scene::DeltaTime();
+		if (m_blackFireAnimTimer >= BLACKFIRE_FRAME_DURATION) {
+			m_blackFireAnimTimer = 0.0;
+			m_blackFireFrame = (m_blackFireFrame + 1) % 16; // 16フレームループ
+		}
+	}
+
+	int getBlackFireFrame() const { return m_blackFireFrame; }
 
 protected:
 	// 内部ヘルパーメソッド
