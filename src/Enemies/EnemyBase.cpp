@@ -17,6 +17,9 @@ EnemyBase::EnemyBase(EnemyType type, const Vec2& startPosition)
 	, m_collisionHeight(64.0)
 	, m_effectTimer(0.0)
 	, m_hasEffect(false)
+	, m_isTransformed(false)
+	, m_blackFireFrame(0)
+	, m_blackFireAnimTimer(0.0)
 {
 	updateCollisionRect();
 }

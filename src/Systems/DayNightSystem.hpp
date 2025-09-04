@@ -34,7 +34,7 @@ private:
 	};
 	ConstantBuffer<DayNightParams> m_shaderParams;
 
-	// ★ 新規追加: UI関連メンバー
+	//  UI関連メンバー
 	Texture m_gaugeTexture;
 	Font m_uiFont;
 	Font m_smallFont;
@@ -43,6 +43,25 @@ private:
 	static constexpr double BASE_DAY_DURATION = 60.0;
 	static constexpr double STAR_TIME_BONUS = 10.0;
 	static constexpr double STAR_NIGHT_DELAY = 5.0;
+
+	// 変身エフェクト関連
+	struct TransformEffect {
+		Vec2 position;
+		int frameIndex;
+		double animTimer;
+		bool active;
+		double scale;
+		double alpha;
+	};
+	Array<TransformEffect> m_transformEffects;
+	Texture m_blackFireTexture;
+	static constexpr double TRANSFORM_FRAME_DURATION = 0.05; // 各フレーム0.05秒
+	static constexpr int BLACKFIRE_FRAMES = 16;
+	static constexpr int BLACKFIRE_SPRITE_SIZE = 128;
+
+	// フェーズ変更検出用
+	TimePhase m_previousPhase;
+	bool m_justBecameNight;
 
 public:
 	DayNightSystem();
@@ -79,9 +98,16 @@ public:
 	String getPhaseText() const;
 	ColorF getPhaseColor() const;
 
-	// ★ 新規追加: UI描画メソッド
+	// UI描画メソッド
 	void drawTimeGaugeUI(const Vec2& position) const;
 	void drawTimeInfoUI(const Vec2& position) const;
+
+	// 変身エフェクト
+	void triggerTransformEffect(const Vec2& position);
+	void updateTransformEffects();
+	void drawTransformEffects(const Vec2& cameraOffset) const;
+	bool justBecameNight() const { return m_justBecameNight; }
+	void resetNightTransition() { m_justBecameNight = false; }
 
 private:
 	void updateDayDuration();

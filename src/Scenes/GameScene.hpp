@@ -129,6 +129,12 @@ private:
 	static bool s_shouldLoadNextStage;
 	static bool s_shouldRetryStage;
 
+	// 黒い炎テクスチャ
+	Texture m_blackFireTexture;
+	static constexpr int BLACKFIRE_SPRITE_SIZE = 128; // 元のスプライトサイズ
+	static constexpr double BLACKFIRE_DRAW_SIZE = 200.0; // 描画サイズ
+
+
 public:
 	explicit GameScene(StageNumber stage =StageNumber::Stage1);
 	~GameScene() override = default;

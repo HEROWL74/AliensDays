@@ -8,6 +8,7 @@ enum class TutorialEvent
    MoveLeftRight, //左右に移動した
    Jump,         //ジャンプした
    StompEnemy,   //敵を踏んだ（Flattened）
+   HipDrop,
    FireballKill //ファイアボールで敵を倒した
 };
 

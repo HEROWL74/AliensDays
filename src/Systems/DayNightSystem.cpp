@@ -23,16 +23,24 @@ void DayNightSystem::init()
 
 	m_shaderParams = ConstantBuffer<DayNightParams>();
 
-	// UI用のテクスチャ読み込み
-	m_gaugeTexture = Texture(U"UI/MNGage.png");
-	if (!m_gaugeTexture)
+	// BlackFireテクスチャの読み込み
+	m_blackFireTexture = Texture(U"Sprites/BlackFire.png");
+	if (!m_blackFireTexture)
 	{
-		Print << U"Failed to load gauge texture, using fallback";
+		Print << U"Failed to load BlackFire texture";
 	}
+
+	// UI用のテクスチャ読み込み（削除：ゲージ不要）
+	// m_gaugeTexture = Texture(U"UI/MNGage.png"); // 削除
 
 	// UI用フォント初期化
 	m_uiFont = Font(20, Typeface::Bold);
 	m_smallFont = Font(16);
+
+	// 変身エフェクト配列の初期化
+	m_transformEffects.clear();
+	m_previousPhase = TimePhase::Day;
+	m_justBecameNight = false;
 
 	updateDayDuration();
 	m_currentTime = 0.0;
@@ -55,6 +63,9 @@ void DayNightSystem::update()
 	updatePhaseTransition();
 	updateEnemyAggression();
 	updateShaderParams();
+
+	// 変身エフェクトの更新
+	updateTransformEffects();
 }
 
 void DayNightSystem::applyShader(const RenderTexture& source) const
@@ -89,6 +100,7 @@ void DayNightSystem::updateDayDuration()
 
 void DayNightSystem::updatePhase()
 {
+	// 前のフェーズを保存
 	TimePhase previousPhase = m_currentPhase;
 	const double normalizedTime = m_currentTime / m_dayDuration;
 
@@ -109,12 +121,21 @@ void DayNightSystem::updatePhase()
 		m_currentPhase = TimePhase::Dawn;
 	}
 
+	// 夜になった瞬間の検出
+	if (previousPhase != TimePhase::Night && m_currentPhase == TimePhase::Night)
+	{
+		m_justBecameNight = true;
+	}
+	else
+	{
+		m_justBecameNight = false;
+	}
+
 	if (previousPhase != m_currentPhase)
 	{
 		m_phaseTransitionTimer = 0.0;
 	}
 }
-
 void DayNightSystem::updatePhaseTransition()
 {
 	m_phaseTransitionTimer += Scene::DeltaTime();
@@ -267,7 +288,7 @@ ColorF DayNightSystem::getPhaseColor() const
 	}
 }
 
-// ★ 新規追加: 時間ゲージUI描画メソッド
+//時間ゲージUI描画メソッド
 void DayNightSystem::drawTimeGaugeUI(const Vec2& position) const
 {
 	const Vec2 gaugePos = position;
@@ -425,5 +446,92 @@ void DayNightSystem::drawTimeInfoUI(const Vec2& position) const
 			.draw(ColorF(0.0, 0.0, 0.0, 0.4));
 
 		Font(14)(bonusText).draw(bonusPos, ColorF(1.0, 1.0, 0.5));
+	}
+}
+
+void DayNightSystem::triggerTransformEffect(const Vec2& position)
+{
+	TransformEffect effect;
+	effect.position = position;
+	effect.frameIndex = 0;
+	effect.animTimer = 0.0;
+	effect.active = true;
+	effect.scale = 1.2; // 敵と同じくらいのサイズ
+	effect.alpha = 1.0;
+
+	m_transformEffects.push_back(effect);
+}
+
+void DayNightSystem::updateTransformEffects()
+{
+	const double deltaTime = Scene::DeltaTime();
+
+	for (auto it = m_transformEffects.begin(); it != m_transformEffects.end();)
+	{
+		auto& effect = *it;
+
+		if (!effect.active)
+		{
+			it = m_transformEffects.erase(it);
+			continue;
+		}
+
+		// アニメーション更新
+		effect.animTimer += deltaTime;
+
+		// フレーム更新（アニメーション進行）
+		const int newFrame = static_cast<int>(effect.animTimer / TRANSFORM_FRAME_DURATION);
+
+		if (newFrame >= BLACKFIRE_FRAMES)
+		{
+			// アニメーション終了
+			effect.active = false;
+		}
+		else
+		{
+			effect.frameIndex = newFrame;
+
+			// 後半でフェードアウト（最後の3フレームで徐々に透明に）
+			if (newFrame >= BLACKFIRE_FRAMES - 3)
+			{
+				const double fadeFrames = 3.0;
+				const double fadeProgress = (newFrame - (BLACKFIRE_FRAMES - fadeFrames)) / fadeFrames;
+				effect.alpha = 1.0 - fadeProgress;
+			}
+
+			// スケールは固定または微妙に変化
+			effect.scale = 1.2 + std::sin(effect.animTimer * 10.0) * 0.1;
+		}
+
+		++it;
+	}
+}
+void DayNightSystem::drawTransformEffects(const Vec2& cameraOffset) const
+{
+	if (!m_blackFireTexture) return;
+
+	for (const auto& effect : m_transformEffects)
+	{
+		if (!effect.active) continue;
+
+		// スプライトの位置を計算（4x4グリッド）
+		const int row = effect.frameIndex / 4;
+		const int col = effect.frameIndex % 4;
+
+		// ソース矩形（128x128のスプライト）
+		const Rect srcRect(
+			col * BLACKFIRE_SPRITE_SIZE,
+			row * BLACKFIRE_SPRITE_SIZE,
+			BLACKFIRE_SPRITE_SIZE,
+			BLACKFIRE_SPRITE_SIZE
+		);
+
+		// スクリーン座標に変換
+		const Vec2 screenPos = effect.position - cameraOffset;
+
+		// エフェクトの描画（アニメーション）
+		m_blackFireTexture(srcRect)
+			.scaled(effect.scale)
+			.drawAt(screenPos, ColorF(1.0, 1.0, 1.0, effect.alpha));
 	}
 }

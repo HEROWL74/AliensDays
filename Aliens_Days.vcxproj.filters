@@ -762,6 +762,7 @@
     <None Include="App\Stages\Stage6.json">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="App\Stages\Tutorial.json" />
   </ItemGroup>
   <ItemGroup>
     <Media Include="App\example\test.mp3">
@@ -1018,6 +1019,12 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\Scenes\TutorialScene.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\TutorialEvents.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\TutorialPanel.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
