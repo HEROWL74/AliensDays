@@ -43,7 +43,7 @@
 ## 🖼️ スクリーンショット
 
 ### 🎬 タイトルシーン
-![Title Scene](https://github.com/user-attachments/assets/e5ca6be7-5ea1-430a-beab-a30aee99743c)
+![Title Scene](https://github.com/user-attachments/assets/a74af4ca-0b01-4d32-b540-c71ca20537a2)
 
 ゲーム起動後のタイトルシーンでは、キャラクターが浮遊しながらロゴが表示され、ボタンにアニメーションが付与されています。  
 背景・UI・エフェクトすべて自作素材で構成されており、**スタート・オプションの選択UIもマウス対応**です。
@@ -51,7 +51,7 @@
 ---
 
 ### 🌱 ステージ1（草原エリア）
-![Stage 1 Gameplay](https://github.com/user-attachments/assets/a74af4ca-0b01-4d32-b540-c71ca20537a2)
+![Stage 1 Gameplay](https://github.com/user-attachments/assets/e5ca6be7-5ea1-430a-beab-a30aee99743c)
 
 ---
 
