@@ -81,6 +81,10 @@ public:
 		{
 			applyShockwave();
 		}
+		else if (m_glowActive && m_glowShader)
+		{
+			applyGlow();
+		}
 		else if (m_chromaticActive && m_chromaticShader)
 		{
 			applyChromaticAberration();
@@ -88,10 +92,6 @@ public:
 		else if (m_waveActive && m_waveShader)
 		{
 			applyWave();
-		}
-		else if (m_glowActive && m_glowShader)
-		{
-			applyGlow();
 		}
 		else
 		{
@@ -107,17 +107,17 @@ public:
 	{
 		if (!m_shockwaveShader) return;
 
-		const Vec2 screenPos = (worldPos - cameraOffset);
+		const Vec2 screenPos = worldPos - cameraOffset;
 		m_shockwaveActive = true;
 		m_shockwaveTime = 0.0;
 
 		m_shockwaveBuffer->center = Float2{
-			static_cast<float>(screenPos.x / Scene::Width()),
-			static_cast<float>(screenPos.y / Scene::Height())
+	static_cast<float>(screenPos.x / Scene::Width()),
+	static_cast<float>(screenPos.y / Scene::Height())
 		};
 		m_shockwaveBuffer->radius = 0.0f;
-		m_shockwaveBuffer->thickness = 0.05f;
-		m_shockwaveBuffer->force = 0.15f;
+		m_shockwaveBuffer->thickness = 0.1f;
+		m_shockwaveBuffer->force = 0.3f;
 	}
 
 

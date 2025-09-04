@@ -41,13 +41,21 @@ void GameScene::init()
 	// 背景画像の読み込み
 	m_backgroundTexture = Texture(U"Sprites/Backgrounds/background_fade_mushrooms.png");
 
+	// 黒い炎テクスチャの読み込み
+	m_blackFireTexture = Texture(U"Sprites/BlackFire.png");
+	if (!m_blackFireTexture)
+	{
+		Print << U"Failed to load BlackFire.png";
+	}
+
+
 	// フォントの初期化
 	m_gameFont = Font(24);
 
 	// ゲームBGMを開始
 	SoundManager::GetInstance().playBGM(SoundManager::SoundType::BGM_GAME);
 
-	// 重要：シーン遷移フラグを必ずリセット
+	// シーン遷移フラグを必ずリセット
 	m_nextScene = none;
 
 	// リザルトシーンからの復帰処理
@@ -109,11 +117,21 @@ void GameScene::init()
 	m_starSystem->init();
 	m_starSystem->generateStarsForStage(m_currentStageNumber);
 
-	// BlockSystemの初期化
+	//BlockSystemの初期化
 	m_blockSystem = std::make_unique<BlockSystem>();
 	if (m_blockSystem) {
 		m_blockSystem->init();
 		m_blockSystem->generateBlocksForStage(m_currentStageNumber);
+
+		//ヒップドロップ破壊時のシェーダーエフェクトコールバックを設定
+		m_blockSystem->setHipDropDestructionCallback([this](const Vec2& position) {
+			if (m_shaderEffects && m_stage)
+			{
+				// ワールド座標をスクリーン座標に変換してShockWaveエフェクトを発動
+				const Vec2 screenPos = m_stage->worldToScreenPosition(position);
+				m_shaderEffects->triggerShockwave(position, m_stage->getCameraOffset());
+			}
+		});
 	}
 
 	// 敵の初期化
@@ -173,6 +191,15 @@ void GameScene::update()
 
 		m_nextScene = SceneType::GameOver;
 		return;
+	}
+
+	if (m_player && m_player->isHipDropping() && m_player->isGrounded())
+	{
+		if (m_shaderEffects && m_stage)
+		{
+			const Vec2 playerPos = m_player->getPosition();
+			m_shaderEffects->triggerShockwave(playerPos, m_stage->getCameraOffset());
+		}
 	}
 
 	if (m_shaderEffects)
@@ -422,6 +449,12 @@ void GameScene::draw() const
 			}
 
 			drawEnemies();
+
+			// 変身エフェクトを敵の後に描画（より前面に表示）
+			if (m_dayNightSystem && m_stage)
+			{
+				m_dayNightSystem->drawTransformEffects(m_stage->getCameraOffset());
+			}
 			drawFireballDestructionEffects();
 
 			if (m_player && m_stage)
@@ -802,41 +835,39 @@ void GameScene::initEnemies()
 {
 	m_enemies.clear();
 
-	const String stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
+	String stageFile;
+	if (m_currentStageNumber == StageNumber::Tutorial) {
+		stageFile = U"Stages/Tutorial.json";
+	}
+	else {
+		stageFile = U"Stages/Stage{}.json"_fmt(static_cast<int>(m_currentStageNumber));
+	}
 
-	if (!FileSystem::Exists(stageFile))
-	{
-		Print << U"カレントパス: " << FileSystem::CurrentDirectory();
-		Print << U"チェックしているパス: " << stageFile;
-		Print << U"Not find Stage files";
+	if (!FileSystem::Exists(stageFile)) {
+		Print << U"Not find Stage file: " << stageFile;
 		return;
 	}
 
 	const JSON stageData = JSON::Load(stageFile);
-
-	if (!stageData)
-	{
+	if (!stageData) {
 		Print << U"Failed to load json: " << stageFile;
 		return;
 	}
 
-	for (const auto& enemyEntry : stageData.arrayView())
-	{
+	for (const auto& enemyEntry : stageData.arrayView()) {
 		String type = enemyEntry[U"type"].getString();
 		double x = enemyEntry[U"x"].get<double>();
 		double y = enemyEntry[U"y"].get<double>();
 
-		try
-		{
+		try {
 			addEnemy(spawnEnemy(type, Vec2{ x,y }));
 		}
-		catch (const std::exception& e)
-		{
-			const String message = Unicode::FromUTF8(e.what());
-			Print << U"Failed to generate enemy: " << message;
+		catch (const std::exception& e) {
+			Print << U"Failed to generate enemy: " << Unicode::FromUTF8(e.what());
 		}
 	}
 }
+
 
 void GameScene::updateEnemies()
 {
@@ -848,12 +879,71 @@ void GameScene::updateEnemies()
 			if (enemy && enemy->isActive())
 			{
 				enemy->update();
+				enemy->updateBlackFireAnimation(); // 黒い炎アニメーション更新
 			}
 		}
 	}
 	else
 	{
-		// 昼夜システムによる敵の挙動変更
+		// 夜になった瞬間の変身処理
+		if (m_dayNightSystem->justBecameNight())
+		{
+			// すべての敵を変身させる
+			for (auto& enemy : m_enemies)
+			{
+				if (!enemy || !enemy->isActive()) continue;
+
+				// 変身対象の敵タイプのみ変身
+				bool shouldTransform = false;
+				switch (enemy->getType())
+				{
+				case EnemyType::NormalSlime:
+				case EnemyType::SpikeSlime:
+				case EnemyType::Bee:
+				case EnemyType::Fly:
+					shouldTransform = true;
+					break;
+				default:
+					break;
+				}
+
+				if (shouldTransform)
+				{
+					// 敵を変身状態にする
+					enemy->transform();
+
+					// 変身時の速度・挙動変更
+					Vec2 velocity = enemy->getVelocity();
+					velocity.x *= 1.5; // 速度1.5倍
+					enemy->setVelocity(velocity);
+
+					// サウンドエフェクト再生
+					SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_BREAK_BLOCK);
+				}
+			}
+
+			// フラグをリセット
+			m_dayNightSystem->resetNightTransition();
+		}
+
+		// 昼に戻った時の変身解除
+		if (!m_dayNightSystem->isNight() && !m_dayNightSystem->isDangerous())
+		{
+			for (auto& enemy : m_enemies)
+			{
+				if (enemy && enemy->isTransformed())
+				{
+					enemy->untransform();
+
+					// 速度を通常に戻す
+					Vec2 velocity = enemy->getVelocity();
+					velocity.x /= 1.5;
+					enemy->setVelocity(velocity);
+				}
+			}
+		}
+
+		// 変身中の敵の特殊挙動
 		const double speedMultiplier = m_dayNightSystem->getEnemySpeedMultiplier();
 		const double aggressionMultiplier = m_dayNightSystem->getEnemyAggressionMultiplier();
 		const bool isNightTime = m_dayNightSystem->isNight();
@@ -863,36 +953,37 @@ void GameScene::updateEnemies()
 		{
 			if (!enemy || !enemy->isActive()) continue;
 
-			// 敵タイプごとの夜間挙動
-			switch (enemy->getType())
+			// 黒い炎アニメーション更新
+			enemy->updateBlackFireAnimation();
+
+			// 変身中の特殊挙動
+			if (enemy->isTransformed())
 			{
-			case EnemyType::NormalSlime:
-				if (isNightTime)
+				switch (enemy->getType())
 				{
-					// 夜は速度アップとジャンプ力増加
+				case EnemyType::NormalSlime:
+				{
 					NormalSlime* slime = static_cast<NormalSlime*>(enemy.get());
 					Vec2 velocity = slime->getVelocity();
 
-					// 移動速度を1.5倍に
+					// 変身中は常に高速移動
 					if (std::abs(velocity.x) > 0)
 					{
-						velocity.x = (velocity.x > 0 ? 1 : -1) * 80.0 * speedMultiplier;
+						velocity.x = (velocity.x > 0 ? 1 : -1) * 100.0;
 					}
 
-					// 時々ジャンプ（通常はジャンプしない）
-					if (slime->isGrounded() && Random(0.0, 1.0) < 0.01 * aggressionMultiplier)
+					// 時々大ジャンプ
+					if (slime->isGrounded() && Random(0.0, 1.0) < 0.02)
 					{
-						velocity.y = -200.0;  // 小ジャンプ
+						velocity.y = -400.0;
 					}
 
 					slime->setVelocity(velocity);
 				}
 				break;
 
-			case EnemyType::SpikeSlime:
-				if (isNightTime)
+				case EnemyType::SpikeSlime:
 				{
-					// 夜は追跡モードになる（プレイヤーの方向に向かう）
 					SpikeSlime* spike = static_cast<SpikeSlime*>(enemy.get());
 					if (m_player)
 					{
@@ -900,8 +991,8 @@ void GameScene::updateEnemies()
 						const Vec2 enemyPos = spike->getPosition();
 						const double distance = playerPos.distanceFrom(enemyPos);
 
-						// 300ピクセル以内なら追跡
-						if (distance < 300.0)
+						// 変身中は追跡範囲拡大
+						if (distance < 500.0)
 						{
 							const bool shouldGoLeft = playerPos.x < enemyPos.x;
 							const EnemyDirection targetDir = shouldGoLeft ?
@@ -912,84 +1003,59 @@ void GameScene::updateEnemies()
 								spike->changeDirection();
 							}
 
-							// 追跡速度
 							Vec2 velocity = spike->getVelocity();
-							velocity.x = (shouldGoLeft ? -1 : 1) * 60.0 * speedMultiplier;
+							velocity.x = (shouldGoLeft ? -1 : 1) * 120.0;
 							spike->setVelocity(velocity);
 						}
 					}
 				}
 				break;
 
-			case EnemyType::Bee:
-				if (isDangerousTime)
+				case EnemyType::Bee:
 				{
-					// 夕暮れから夜にかけて積極的に追跡
 					Bee* bee = static_cast<Bee*>(enemy.get());
 					if (m_player)
 					{
-						// 追跡範囲を拡大（通常200→夜は400）
-						const double chaseRange = isNightTime ? 400.0 : 300.0;
+						// 変身中は超積極的に追跡
+						const double chaseRange = 600.0;
 						const Vec2 playerPos = m_player->getPosition();
 						const double distance = bee->getPosition().distanceFrom(playerPos);
 
 						if (distance < chaseRange)
 						{
 							bee->updateChase(playerPos);
-
-							// 夜は追跡速度アップ
 							Vec2 velocity = bee->getVelocity();
-							velocity *= speedMultiplier;
+							velocity *= 2.0; // 倍速
 							bee->setVelocity(velocity);
 						}
 					}
 				}
 				break;
 
-			case EnemyType::Fly:
-				if (isNightTime)
+				case EnemyType::Fly:
 				{
-					// 夜は集団行動（プレイヤーの周りに集まる）
 					Fly* fly = static_cast<Fly*>(enemy.get());
 					if (m_player)
 					{
 						const Vec2 playerPos = m_player->getPosition();
 						const Vec2 flyPos = fly->getPosition();
-						const double distance = playerPos.distanceFrom(flyPos);
 
-						// 500ピクセル以内なら円を描くように動く
-						if (distance < 500.0 && distance > 100.0)
-						{
-							// プレイヤーの周りを旋回
-							const double angle = std::atan2(flyPos.y - playerPos.y,
-															flyPos.x - playerPos.x);
-							const double targetAngle = angle + 0.02 * aggressionMultiplier;
-							const double targetDistance = 200.0;
+						// 変身中は直接プレイヤーを追跡
+						const Vec2 direction = (playerPos - flyPos).normalized();
+						Vec2 velocity = direction * 150.0;
 
-							const Vec2 targetPos = playerPos +
-								Vec2(std::cos(targetAngle), std::sin(targetAngle)) * targetDistance;
+						// ジグザグ動作を追加
+						velocity.x += std::sin(Scene::Time() * 10.0) * 50.0;
+						velocity.y += std::cos(Scene::Time() * 10.0) * 30.0;
 
-							const Vec2 direction = (targetPos - flyPos).normalized();
-							Vec2 velocity = direction * 100.0 * speedMultiplier;
-
-							// 上下の波動を追加
-							velocity.y += std::sin(Scene::Time() * 5.0) * 30.0;
-
-							fly->setVelocity(velocity);
-						}
+						fly->setVelocity(velocity);
 					}
 				}
 				break;
 
-			default:
-				// その他の敵は速度変更のみ
-				if (isDangerousTime)
-				{
-					Vec2 velocity = enemy->getVelocity();
-					velocity.x *= speedMultiplier;
-					enemy->setVelocity(velocity);
+				default:
+					break;
 				}
-				break;
 			}
 
 			// 共通の更新処理
@@ -1020,91 +1086,94 @@ void GameScene::drawEnemies() const
 
 			if (enemyScreenPos.x >= -100 && enemyScreenPos.x <= Scene::Width() + 100)
 			{
-				// 昼夜による色調整
-				ColorF tint = ColorF(1.0, 1.0, 1.0);
-				if (m_dayNightSystem)
+				// 変身状態なら黒い炎を描画
+				if (enemy->isTransformed() && m_blackFireTexture)
 				{
-					// 夜は赤みがかった色に
-					if (m_dayNightSystem->isNight())
-					{
-						tint = ColorF(1.2, 0.8, 0.8);
-					}
-					else if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Sunset)
-					{
-						tint = ColorF(1.1, 0.9, 0.8);
-					}
-				}
+					// 現在のフレームを取得
+					const int frame = enemy->getBlackFireFrame();
+					const int row = frame / 4;
+					const int col = frame % 4;
 
-				const Texture currentTexture = enemy->getCurrentTexture();
-				if (currentTexture)
-				{
+					// スプライトの切り出し（128x128）
+					const Rect srcRect(
+						col * BLACKFIRE_SPRITE_SIZE,
+						row * BLACKFIRE_SPRITE_SIZE,
+						BLACKFIRE_SPRITE_SIZE,
+						BLACKFIRE_SPRITE_SIZE
+					);
+
+					// 80x80で描画
+					const double scale = BLACKFIRE_DRAW_SIZE / BLACKFIRE_SPRITE_SIZE;
+
+					// 敵の向きに応じて反転
 					if (enemy->getDirection() == EnemyDirection::Left)
 					{
-						currentTexture.mirrored().drawAt(enemyScreenPos, tint);
+						m_blackFireTexture(srcRect)
+							.scaled(scale)
+							.mirrored()
+							.drawAt(enemyScreenPos);
 					}
 					else
 					{
-						currentTexture.drawAt(enemyScreenPos, tint);
+						m_blackFireTexture(srcRect)
+							.scaled(scale)
+							.drawAt(enemyScreenPos);
 					}
+
+					// 変身中の追加エフェクト（黒いオーラ）
+					const double auraAlpha = 0.3 + std::sin(Scene::Time() * 8.0) * 0.2;
+					Circle(enemyScreenPos, 45).draw(ColorF(0.1, 0.0, 0.2, auraAlpha));
 				}
+				// 通常状態なら元のテクスチャを描画
 				else
 				{
-					// フォールバック描画
-					ColorF fallbackColor;
-					switch (enemy->getType())
-					{
-					case EnemyType::NormalSlime:  fallbackColor = ColorF(0.2, 0.8, 0.2); break;
-					case EnemyType::SpikeSlime:   fallbackColor = ColorF(0.6, 0.2, 0.6); break;
-					case EnemyType::Ladybug:      fallbackColor = ColorF(0.8, 0.2, 0.2); break;
-					case EnemyType::SlimeBlock:   fallbackColor = ColorF(0.2, 0.5, 0.8); break;
-					case EnemyType::Saw:          fallbackColor = ColorF(0.7, 0.7, 0.7); break;
-					case EnemyType::Bee:          fallbackColor = ColorF(1.0, 1.0, 0.0); break;
-					case EnemyType::Fly:          fallbackColor = ColorF(0.3, 0.3, 0.3); break;
-					default:                      fallbackColor = ColorF(0.5, 0.5, 0.5); break;
-					}
-					Circle(enemyScreenPos, 32).draw(fallbackColor * tint);
-				}
+					ColorF tint = ColorF(1.0, 1.0, 1.0);
 
-				// 夜間の赤く光るエフェクト
-				if (m_dayNightSystem && m_dayNightSystem->isDangerous())
-				{
-					const ColorF glowColor = m_dayNightSystem->getEnemyGlowColor();
-					if (glowColor.a > 0.01)
+					// 昼夜による色調整（非変身時のみ）
+					if (m_dayNightSystem && !enemy->isTransformed())
 					{
-						// 凶暴化している敵のみ光る
-						bool shouldGlow = false;
+						if (m_dayNightSystem->isNight())
+						{
+							tint = ColorF(1.2, 0.8, 0.8);
+						}
+						else if (m_dayNightSystem->getCurrentPhase() == DayNightSystem::TimePhase::Sunset)
+						{
+							tint = ColorF(1.1, 0.9, 0.8);
+						}
+					}
+
+					const Texture currentTexture = enemy->getCurrentTexture();
+					if (currentTexture)
+					{
+						if (enemy->getDirection() == EnemyDirection::Left)
+						{
+							currentTexture.mirrored().drawAt(enemyScreenPos, tint);
+						}
+						else
+						{
+							currentTexture.drawAt(enemyScreenPos, tint);
+						}
+					}
+					else
+					{
+						// フォールバック描画
+						ColorF fallbackColor;
 						switch (enemy->getType())
 						{
-						case EnemyType::NormalSlime:
-						case EnemyType::SpikeSlime:
-						case EnemyType::Bee:
-						case EnemyType::Fly:
-							shouldGlow = true;
-							break;
-						default:
-							break;
+						case EnemyType::NormalSlime:  fallbackColor = ColorF(0.2, 0.8, 0.2); break;
+						case EnemyType::SpikeSlime:   fallbackColor = ColorF(0.6, 0.2, 0.6); break;
+						case EnemyType::Ladybug:      fallbackColor = ColorF(0.8, 0.2, 0.2); break;
+						case EnemyType::SlimeBlock:   fallbackColor = ColorF(0.2, 0.5, 0.8); break;
+						case EnemyType::Saw:          fallbackColor = ColorF(0.7, 0.7, 0.7); break;
+						case EnemyType::Bee:          fallbackColor = ColorF(1.0, 1.0, 0.0); break;
+						case EnemyType::Fly:          fallbackColor = ColorF(0.3, 0.3, 0.3); break;
+						default:                      fallbackColor = ColorF(0.5, 0.5, 0.5); break;
 						}
-
-						if (shouldGlow)
-						{
-							Circle(enemyScreenPos, 45).draw(glowColor);
-							Circle(enemyScreenPos, 35).drawFrame(3.0,
-								ColorF(glowColor.r, 0.0, 0.0, glowColor.a * 1.5));
-
-							// 目の光
-							if (m_dayNightSystem->isNight())
-							{
-								const double eyeGlow = std::sin(Scene::Time() * 8.0) * 0.3 + 0.7;
-								Circle(enemyScreenPos + Vec2(-8, -5), 3)
-									.draw(ColorF(1.0, 0.0, 0.0, eyeGlow));
-								Circle(enemyScreenPos + Vec2(8, -5), 3)
-									.draw(ColorF(1.0, 0.0, 0.0, eyeGlow));
-							}
-						}
+						Circle(enemyScreenPos, 32).draw(fallbackColor * tint);
 					}
 				}
 
-				// 既存のエフェクト描画
+				// 状態エフェクト描画
 				if (enemy->getState() == EnemyState::Flattened)
 				{
 					drawEnemyFlattenedEffect(enemyScreenPos, enemy.get());
@@ -1331,6 +1400,11 @@ void GameScene::handlePlayerStompEnemy(EnemyBase* enemy)
 	enemy->onStomp();
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_HIT);
 
+	if (!m_player->getTutorialNotifiedStomp()) {
+		m_player->setTutorialNotifiedStomp(true);
+		TutorialEmit(TutorialEvent::StompEnemy, enemy->getPosition());
+	}
+
 	// 衝撃波エフェクトを追加
 	if (m_shaderEffects && m_stage)
 	{
@@ -1374,6 +1448,11 @@ void GameScene::updateFireballEnemyCollision()
 				// 敵を撃破
 				enemy->onDestroy();
 
+				if (m_player && !m_player->getTutorialNotifiedFireball()) {
+					m_player->setTutorialNotifiedFireball(true);
+					TutorialEmit(TutorialEvent::FireballKill, enemy->getPosition());
+				}
+
 				// ファイアボールを無効化
 				m_player->deactivateFireball(fireball.position);
 
@@ -1392,7 +1471,6 @@ void GameScene::handleEnemyHitByFireball(EnemyBase* enemy, const Vec2& fireballP
 
 	// 敵を即座に死亡状態にする
 	enemy->onDestroy();
-
 	// ★ 敵の種類に応じた撃破エフェクトを生成
 	createFireballDestructionEffect(enemy->getPosition(), enemy->getType(), fireballPosition);
 }

@@ -4,6 +4,7 @@
 void Main()
 {
 	Profiler::EnableAssetCreationWarning(false);
+	FontAsset::Register(U"Menu", 20, Typeface::Bold);
 	// ゲームインスタンスの作成
 	Game game;
 

@@ -21,7 +21,7 @@ private:
 		String category;
 		Array<String> names;
 		ColorF categoryColor;
-		ColorF nameColor;
+		ColorF nameColor{};
 	};
 
 	// クレジットデータ

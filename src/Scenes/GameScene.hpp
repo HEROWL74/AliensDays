@@ -79,7 +79,7 @@ struct FireballDestructionEffect
 	}
 };
 
-class GameScene final : public SceneBase
+class GameScene: public SceneBase
 {
 private:
 	// 基本メンバー変数
@@ -129,6 +129,12 @@ private:
 	static bool s_shouldLoadNextStage;
 	static bool s_shouldRetryStage;
 
+	// 黒い炎テクスチャ
+	Texture m_blackFireTexture;
+	static constexpr int BLACKFIRE_SPRITE_SIZE = 128; // 元のスプライトサイズ
+	static constexpr double BLACKFIRE_DRAW_SIZE = 200.0; // 描画サイズ
+
+
 public:
 	explicit GameScene(StageNumber stage =StageNumber::Stage1);
 	~GameScene() override = default;
@@ -158,6 +164,8 @@ public:
 	static void setNextStageMode() { s_shouldLoadNextStage = true; s_shouldRetryStage = false; }
 	static void setRetryMode() { s_shouldRetryStage = true; s_shouldLoadNextStage = false; }
 
+protected:
+	void addEnemy(std::unique_ptr<EnemyBase> enemy);
 private:
 	// ステージ関連
 	void loadStage(StageNumber stageNumber);
@@ -172,7 +180,6 @@ private:
 	void drawEnemies() const;
 	void updatePlayerEnemyCollision();
 	void updateEnemyStageCollision();
-	void addEnemy(std::unique_ptr<EnemyBase> enemy);
 
 	// ゴール関連
 	void updateGoalCheck();

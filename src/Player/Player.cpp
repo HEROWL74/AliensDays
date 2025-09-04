@@ -17,10 +17,8 @@ Player::Player()
 	, m_explosionTimer(0.0)
 	, m_deathTimer(0.0)
 	, m_fireballCount(0)
-	, m_isSliding(false)         
-	, m_slideTimer(0.0)          
-	, m_slideSpeed(0.0)          
-	, m_slideDirection(PlayerDirection::Right)
+	, m_isHipDropping(false)
+	, m_hipDropTimer(0.0)
 {
 	// パーティクル配列をクリア
 	m_explosionParticles.clear();
@@ -45,16 +43,15 @@ Player::Player(PlayerColor color, const Vec2& startPosition)
 	, m_explosionTimer(0.0)
 	, m_deathTimer(0.0)
 	, m_fireballCount(0)
-	, m_isSliding(false)
-	, m_slideTimer(0.0)  
-	, m_slideSpeed(0.0)       
-	, m_slideDirection(PlayerDirection::Right) 
 {
 	// パーティクル配列をクリア
 	m_explosionParticles.clear();
 	m_shockwaves.clear();
 	m_shockwaveTimers.clear();
 	m_fireballs.clear();
+
+	m_isHipDropping = false;
+	m_hipDropTimer = 0.0;
 
 	loadTextures();
 }
@@ -337,48 +334,34 @@ void Player::handleInput()
 	bool downPressed = KeyDown.pressed() || KeyS.pressed();
 	bool jumpPressed = KeySpace.pressed() || KeyUp.pressed() || KeyW.pressed();
 	bool jumpDown = KeySpace.down() || KeyUp.down() || KeyW.down();
+	bool downDown = KeyDown.down() || KeyS.down();
 	bool hasHorizontalInput = leftPressed || rightPressed;
 
 	// 方向設定
 	if (leftPressed) setDirection(PlayerDirection::Left);
 	if (rightPressed) setDirection(PlayerDirection::Right);
 
-	// スライディング処理
-	if (m_isSliding)
+	// ヒップドロップ処理
+	if (m_isHipDropping)
 	{
-		m_slideSpeed *= SLIDE_DECELERATION;
-		const double slideVelocity = (m_slideDirection == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
-		m_velocity.x = slideVelocity;
-
-		const double minSlideSpeed = BLOCK_SIZE * 0.5;
-		if (m_slideSpeed < minSlideSpeed || !m_isGrounded || !downPressed)
-		{
-			m_isSliding = false;
-			m_slideSpeed = 0.0;
-		}
-
+		updateHipDrop();
 		if (KeyF.down()) fireFireball();
 		return;
 	}
 
-	// スライディング開始判定
-	if (downPressed && hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit)
+	// ヒップドロップ開始判定
+	if (downDown && !m_isGrounded && m_currentState != PlayerState::Hit)
 	{
-		m_isSliding = true;
-		m_slideSpeed = BLOCK_SIZE * 7.0;
-		m_slideDirection = rightPressed ? PlayerDirection::Right : PlayerDirection::Left;
-		setState(PlayerState::Duck);
-
+		startHipDrop();
 		if (KeyF.down()) fireFireball();
 		return;
 	}
 
 	// ★ 改善されたジャンプ処理
-	if (jumpDown && m_isGrounded && !m_isSliding && m_currentState != PlayerState::Hit)
+	if (jumpDown && m_isGrounded && m_currentState != PlayerState::Hit)
 	{
 		jump();
 	}
-
 	// ★ 可変高さジャンプの改良
 	if (!jumpPressed && m_velocity.y < 0.0 && !m_isGrounded)
 	{
@@ -426,6 +409,12 @@ void Player::handleInput()
 			double airControl = 0.12;
 			m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, airControl);
 		}
+
+		if (!m_tutorialNotifiedMove && Math::Abs(m_velocity.x) > (BLOCK_SIZE * 0.2))
+		{
+			m_tutorialNotifiedMove = true;
+			TutorialEmit(TutorialEvent::MoveLeftRight, m_position);
+		}
 	}
 	else if (!downPressed)
 	{
@@ -458,7 +447,7 @@ void Player::handleInput()
 		setState(PlayerState::Duck);
 		m_velocity.x *= 0.5;
 	}
-	else if (m_currentState == PlayerState::Duck && !downPressed && !m_isSliding)
+	else if (m_currentState == PlayerState::Duck && !downPressed)
 	{
 		setState(PlayerState::Idle);
 	}
@@ -507,7 +496,7 @@ void Player::checkBasicGroundCollision()
 
 void Player::updateStateTransitions()
 {
-	if (m_isSliding) return;
+
 
 	// ヒット状態の自動解除
 	if (m_currentState == PlayerState::Hit && m_stateTimer >= HIT_DURATION)
@@ -673,9 +662,6 @@ Texture Player::getCurrentTexture() const
 	case PlayerState::Duck:
 		textureKey = U"duck";
 		break;
-	case PlayerState::Sliding:  // ★ 追加
-		textureKey = U"duck";   // しゃがみテクスチャを流用（専用テクスチャがあれば変更）
-		break;
 	case PlayerState::Hit:
 		textureKey = U"hit";
 		break;
@@ -765,6 +751,10 @@ void Player::jump()
 	double jumpPower = baseJumpPower * m_stats.jumpPower;
 
 	m_velocity.y = -jumpPower;
+	if (!m_tutorialNotifiedJump /* && いまジャンプが成立した */) {
+		m_tutorialNotifiedJump = true;
+		TutorialEmit(TutorialEvent::Jump, m_position);
+	}
 	setState(PlayerState::Jump);
 	m_isGrounded = false;
 
@@ -1040,7 +1030,6 @@ String Player::getStateString() const
 	case PlayerState::Walk:      return U"Walk";
 	case PlayerState::Jump:      return U"Jump";
 	case PlayerState::Duck:      return U"Duck";
-	case PlayerState::Sliding:   return U"Sliding";  // ★ 追加
 	case PlayerState::Hit:       return U"Hit";
 	case PlayerState::Climb:     return U"Climb";
 	case PlayerState::Exploding: return U"Exploding";
@@ -1192,58 +1181,57 @@ void Player::deactivateFireball(const Vec2& position)
 }
 
 
-
-void Player::startSliding(PlayerDirection direction)
-{
-	if (!m_isGrounded) return;
-
-	m_isSliding = true;
-	m_slideTimer = 0.0;
-	m_slideDirection = direction;
-	m_slideSpeed = SLIDE_SPEED;
-
-	// しゃがみ状態にする
-	setState(PlayerState::Duck);
-
-	// スライディング方向に初速を与える
-	const double slideVelocity = (direction == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
-	m_velocity.x = slideVelocity;
-}
-
-void Player::updateSliding()
-{
-	const double deltaTime = Scene::DeltaTime();
-	m_slideTimer += deltaTime;
-
-	// スライディング速度の減速
-	m_slideSpeed *= SLIDE_DECELERATION;
-
-	// 速度を更新
-	const double slideVelocity = (m_slideDirection == PlayerDirection::Right) ? m_slideSpeed : -m_slideSpeed;
-	m_velocity.x = slideVelocity;
-
-	// スライディング終了条件
-	if (m_slideTimer >= SLIDE_DURATION || m_slideSpeed < 50.0 || !m_isGrounded)
-	{
-		endSliding();
-	}
-}
-
-
-
-void Player::endSliding()
-{
-	m_isSliding = false;
-	m_slideTimer = 0.0;
-	m_slideSpeed = 0.0;
-
-	// スライディング終了後もDuck状態を維持
-	// 下キーが離されたときのみ通常の状態遷移を許可
-	// Duck状態のままにしておく
-}
-
 // ★ 前フレームから上に移動しているかの判定メソッドを追加
 bool Player::wasMovingUpward() const
 {
 	return m_position.y < m_previousPosition.y - 1.0;
 }
+
+void Player::startHipDrop()
+{
+	if (m_isGrounded) return; // 地上では実行できない
+
+	m_isHipDropping = true;
+	m_hipDropTimer = 0.0;
+
+	// 強力な下向きの力を加える
+	m_velocity.x *= 0.5; // 横移動を大幅に減速（完全停止ではなく制御可能に）
+	m_velocity.y = HIP_DROP_FORCE;
+
+	// ヒップドロップ状態に設定
+	setState(PlayerState::Jump);
+
+	if (!m_tutorialNotifiedHipDrop)
+	{
+		m_tutorialNotifiedHipDrop = true;
+		TutorialEmit(TutorialEvent::HipDrop, m_position);
+	}
+	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_HIT);
+}
+
+void Player::updateHipDrop()
+{
+	if (!m_isHipDropping) return;
+
+	const double deltaTime = Scene::DeltaTime();
+	m_hipDropTimer += deltaTime;
+
+	// 最大時間または地面に着地したら終了
+	if (m_hipDropTimer >= HIP_DROP_DURATION || m_isGrounded)
+	{
+		m_isHipDropping = false;
+		m_hipDropTimer = 0.0;
+
+		// 地面に着地した場合の衝撃エフェクト
+		if (m_isGrounded)
+		{
+			// 着地音を再生（より強力な音に変更）
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_BREAK_BLOCK);
+
+			// 小さなバウンドを追加（ヒップドロップの衝撃を表現）
+			m_velocity.y = -100.0; // 軽いバウンド
+		}
+	}
+}
+
+

@@ -19,6 +19,7 @@ private:
 	enum class ButtonAction
 	{
 		Start,
+		Tutorial,
 		Option,
 		Credits,
 		Exit

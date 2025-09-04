@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "../Player/PlayerColor.hpp"
+#include "../Systems/TutorialEvents.hpp"
 
 // プレイヤーのアニメーション状態
 enum class PlayerState
@@ -12,7 +13,6 @@ enum class PlayerState
 	Duck,
 	Hit,
 	Climb,
-	Sliding,
 	Exploding,  // 爆散状態
 	Dead        // 死亡状態
 };
@@ -68,14 +68,6 @@ private:
 	double m_explosionTimer;
 	double m_deathTimer;
 
-	// スライディング関連
-	bool m_isSliding;
-	double m_slideTimer;
-	double m_slideSpeed;
-	PlayerDirection m_slideDirection;
-	float SLIDE_MIN_SPEED = 3.0f;
-	float SLIDE_INITIAL_SPEED = 1.0f;
-
 	// パーティクルシステム
 	struct ExplosionParticle
 	{
@@ -130,15 +122,23 @@ private:
 	static constexpr int EXPLOSION_PARTICLE_COUNT = 25;
 	static constexpr double PARTICLE_GRAVITY = 960.0;
 
-	// スライディング定数
-	static constexpr double SLIDE_SPEED = 448.0;
-	static constexpr double SLIDE_DURATION = 384.0;
-	static constexpr double SLIDE_DECELERATION = 0.85;
+	// ヒップドロップ関連
+	bool m_isHipDropping;
+	double m_hipDropTimer;
+	static constexpr double HIP_DROP_FORCE = 1200.0;
+	static constexpr double HIP_DROP_DURATION = 0.3;
 
 	// ジャンプ状態の追跡用（ブロック破壊判定用）
 	bool m_wasJumping;
 	double m_jumpStateTimer;
 	static constexpr double JUMP_STATE_DURATION = 0.5; // ジャンプ状態を維持する時間
+
+	//チュートリアル用ブール
+	bool m_tutorialNotifiedMove = false;
+	bool m_tutorialNotifiedJump = false;
+	bool m_tutorialNotifiedStomp = false;
+	bool m_tutorialNotifiedFireball = false;
+	bool m_tutorialNotifiedHipDrop = false;
 
 public:
 	Player();
@@ -174,13 +174,9 @@ public:
 	bool isDead() const { return m_currentState == PlayerState::Dead; }
 	double getDeathTimer() const { return m_deathTimer; }
 
-	// スライディング関連のメソッド
-	void startSliding(PlayerDirection direction);
-	void updateSliding();
-	void endSliding();
+
 	bool wasMovingUpward() const;
-	bool isSliding() const { return m_isSliding; }
-	double getSlideSpeed() const { return m_slideSpeed; }
+
 
 	// 位置・移動
 	Vec2 getPosition() const { return m_position; }
@@ -214,6 +210,12 @@ public:
 	int getRemainingFireballs() const { return MAX_FIREBALLS_PER_STAGE - m_fireballCount; }
 	void resetFireballCount() { m_fireballCount = 0; }
 
+	//ヒップドロップ関連メソッド
+	void startHipDrop();
+	void updateHipDrop();
+	bool isHipDropping() const { return m_isHipDropping; }
+	double getHipDropTimer() const { return m_hipDropTimer; }
+
 	// キャラクター情報
 	PlayerColor getColor() const { return m_color; }
 	PlayerStats getStats() const { return m_stats; }
@@ -231,6 +233,11 @@ public:
 			(!m_isGrounded && m_velocity.y < -50.0);
 	}
 
+	bool getTutorialNotifiedStomp() const { return m_tutorialNotifiedStomp; }
+	void setTutorialNotifiedStomp(bool notified) { m_tutorialNotifiedStomp = notified; }
+	bool getTutorialNotifiedFireball() const { return m_tutorialNotifiedFireball; }
+	bool getTutorialNotifiedHipDrop() const { return m_tutorialNotifiedHipDrop; }
+	void setTutorialNotifiedFireball(bool notified) { m_tutorialNotifiedFireball = notified; }
 
 private:
 	// 内部ヘルパーメソッド

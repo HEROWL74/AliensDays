@@ -31,7 +31,7 @@ enum class BlockType
 // ステージ番号
 enum class StageNumber
 {
-	None = 0,
+	Tutorial = 0,
 	Stage1,
 	Stage2,
 	Stage3,

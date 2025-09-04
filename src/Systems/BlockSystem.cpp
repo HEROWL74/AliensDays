@@ -52,7 +52,7 @@ Array<RectF> BlockSystem::getCollisionRects() const
 	{
 		if (block && isBlockSolid(*block))
 		{
-			// ★ 全てのブロックを64x64基準で統一
+			//全てのブロックを64x64基準で統一
 			RectF blockRect(block->position.x, block->position.y, BLOCK_SIZE, BLOCK_SIZE);
 			collisionRects.push_back(blockRect);
 		}
@@ -67,7 +67,7 @@ bool BlockSystem::hasBlockAt(const Vec2& position) const
 	const double BLOCK_SIZE = 64.0;
 	const double halfSize = BLOCK_SIZE / 2.0;
 
-	// ★ 指定位置に1ブロック分の矩形でブロックがあるかチェック
+	//指定位置に1ブロック分の矩形でブロックがあるかチェック
 	const RectF checkRect(
 		position.x - halfSize,
 		position.y - halfSize,
@@ -112,18 +112,43 @@ void BlockSystem::updateBlockInteractions(Player* player)
 		// バウンスアニメーション更新
 		updateBlockAnimation(*block);
 
-		// ★ 1ブロック基準での距離チェック
 		const double distance = block->position.distanceFrom(playerPos);
-		const double INTERACTION_RANGE = BLOCK_SIZE * 2.0; // 2ブロック分の範囲
+		const double INTERACTION_RANGE = BLOCK_SIZE * 2.0;
 
-		// デバウンス処理の条件を1ブロック基準で設定
 		if (block->wasHit && distance > INTERACTION_RANGE)
 		{
 			block->wasHit = false;
 		}
 
-		// 通常のヒット判定
-		if (!block->wasHit && checkPlayerHitFromBelow(*block, player))
+		//ヒップドロップ判定を最優先でチェック
+		if (!block->wasHit && player->isHipDropping() && checkPlayerHipDropHit(*block, player))
+		{
+			block->wasHit = true;
+			block->wasHipDropDestroyed = false; // ★ フラグをリセット
+
+			switch (block->type)
+			{
+			case BlockType::COIN_BLOCK:
+				handleCoinBlockHit(*block);
+				break;
+			case BlockType::BRICK_BLOCK:
+				handleBrickBlockHit(*block);
+				break;
+			}
+
+			// ヒップドロップでブロックを破壊した場合の処理
+			if (block->wasHipDropDestroyed)
+			{
+				// GameSceneにシェーダーエフェクト発動を通知
+				if (m_hipDropDestructionCallback)
+				{
+					m_hipDropDestructionCallback(block->position);
+				}
+				block->wasHipDropDestroyed = false; // フラグをリセット
+			}
+		}
+		// 通常のヒット判定（ヒップドロップ中でない場合）
+		else if (!block->wasHit && !player->isHipDropping() && checkPlayerHitFromBelow(*block, player))
 		{
 			block->wasHit = true;
 
@@ -135,37 +160,6 @@ void BlockSystem::updateBlockInteractions(Player* player)
 			case BlockType::BRICK_BLOCK:
 				handleBrickBlockHit(*block);
 				break;
-			}
-		}
-
-		// スライディング中の特別判定（1ブロック基準で調整）
-		if (player->isSliding() && distance < BLOCK_SIZE * 1.5 && !block->wasHit)
-		{
-			const double halfSize = BLOCK_SIZE / 2.0;
-
-			// スライディング時のプレイヤー矩形（高さを半分に）
-			const RectF slidingPlayerRect(
-				playerPos.x - halfSize,
-				playerPos.y, // 上半分のみ
-				BLOCK_SIZE,
-				halfSize
-			);
-
-			const RectF blockRect = getBlockRect(*block);
-
-			if (slidingPlayerRect.intersects(blockRect))
-			{
-				block->wasHit = true;
-
-				switch (block->type)
-				{
-				case BlockType::COIN_BLOCK:
-					handleCoinBlockHit(*block);
-					break;
-				case BlockType::BRICK_BLOCK:
-					handleBrickBlockHit(*block);
-					break;
-				}
 			}
 		}
 	}
@@ -290,6 +284,9 @@ void BlockSystem::handleCoinBlockHit(Block& block)
 
 		// サウンド再生
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_COIN);
+
+		//ヒップドロップ破壊時の追加処理用フラグを設定
+		block.wasHipDropDestroyed = true;
 	}
 }
 
@@ -303,6 +300,9 @@ void BlockSystem::handleBrickBlockHit(Block& block)
 
 	// サウンド再生
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_BREAK_BLOCK);
+
+	//ヒップドロップ破壊時の追加処理用フラグを設定
+	block.wasHipDropDestroyed = true;
 }
 
 void BlockSystem::createBrickFragments(const Vec2& blockPos)
@@ -500,16 +500,13 @@ bool BlockSystem::checkPlayerHitFromBelow(const Block& block, Player* player) co
 		isMovingUp = true;
 	}
 
-	// スライディング中の特別判定は距離をより厳格に
-	bool isSlidingHit = player->isSliding() &&
-		std::abs(playerTop - blockBottom) <= HIT_TOLERANCE * 0.5; // より狭い範囲
 
 	// ★ 追加条件: プレイヤーが前フレームより上に移動している
 	static Vec2 previousPlayerPos = playerPos;
 	bool isMovingUpward = (playerPos.y < previousPlayerPos.y - 1.0);
 	previousPlayerPos = playerPos;
 
-	return (isPlayerBelow && isMovingUp && isMovingUpward) || isSlidingHit;
+	return (isPlayerBelow && isMovingUp && isMovingUpward);
 }
 
 // ★ レガシーメソッド（互換性のため保持、段階的削除予定）
@@ -1041,4 +1038,56 @@ void BlockSystem::generateBlocksForDirtStage()
 	for (const auto& pos : brickBlocks) {
 		addBrickBlock(pos);
 	}
+
+
+}
+
+bool BlockSystem::checkPlayerHipDropHit(const Block& block, Player* player) const
+{
+	if (!player || !player->isHipDropping()) return false;
+
+	const Vec2 playerPos = player->getPosition();
+	const Vec2 playerVel = player->getVelocity();
+	const double BLOCK_SIZE = 64.0;
+
+	// ヒップドロップ中で下向きに移動している必要がある
+	if (playerVel.y <= 100.0) return false; // 十分な下向き速度が必要
+
+	const double halfSize = BLOCK_SIZE / 2.0;
+
+	// プレイヤーの衝突矩形
+	const RectF playerRect(
+		playerPos.x - halfSize,
+		playerPos.y - halfSize,
+		BLOCK_SIZE,
+		BLOCK_SIZE
+	);
+
+	// ブロックの衝突矩形
+	const RectF blockRect(block.position.x, block.position.y, BLOCK_SIZE, BLOCK_SIZE);
+
+	// 基本的な矩形の重なり判定
+	if (!playerRect.intersects(blockRect)) return false;
+
+	// ヒップドロップは上からの攻撃なので、プレイヤーがブロックの上にいる必要がある
+	const double playerBottom = playerRect.y + playerRect.h;
+	const double blockTop = blockRect.y;
+	const double HIP_DROP_TOLERANCE = BLOCK_SIZE * 0.7; // ヒップドロップは範囲が広い
+
+	// プレイヤーの下端がブロックの上端付近にある
+	bool isPlayerAbove = (playerBottom >= blockTop - HIP_DROP_TOLERANCE) &&
+		(playerBottom <= blockTop + HIP_DROP_TOLERANCE);
+
+	// X軸の重なりもチェック（最低50%の重なりが必要）
+	const double playerLeft = playerRect.x;
+	const double playerRight = playerRect.x + playerRect.w;
+	const double blockLeft = blockRect.x;
+	const double blockRight = blockRect.x + blockRect.w;
+
+	const double overlapLeft = Math::Max(playerLeft, blockLeft);
+	const double overlapRight = Math::Min(playerRight, blockRight);
+	const double overlapWidth = overlapRight - overlapLeft;
+	const double minOverlap = BLOCK_SIZE * 0.5; // 50%以上の重なり
+
+	return (isPlayerAbove && overlapWidth >= minOverlap);
 }
