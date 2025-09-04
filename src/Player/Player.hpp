@@ -12,6 +12,7 @@ enum class PlayerState
 	Jump,
 	Duck,
 	Hit,
+	HipDrop,
 	Climb,
 	Exploding,  // 爆散状態
 	Dead        // 死亡状態

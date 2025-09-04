@@ -490,6 +490,7 @@
     <ClInclude Include="src\Systems\CoinSystem.hpp" />
     <ClInclude Include="src\Systems\CollisionSystem.hpp" />
     <ClInclude Include="src\Systems\DayNightSystem.hpp" />
+    <ClInclude Include="src\Systems\GamepadSystem.hpp" />
     <ClInclude Include="src\Systems\HUDSystem.hpp" />
     <ClInclude Include="src\Systems\StarSystem.hpp" />
     <ClInclude Include="src\Systems\TutorialEvents.hpp" />
