@@ -468,6 +468,10 @@ void Player::handleInput()
 		}
 	}
 
+	if (fireDown)
+	{
+		fireFireball();
+	}
 }
 
 
