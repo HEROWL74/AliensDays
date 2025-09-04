@@ -1,0 +1,87 @@
+name: Build and Release (Windows)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"  
+  workflow_dispatch:
+
+env:
+  SOLUTION_FILE: Aliens_Days.sln
+  CONFIG: Release
+  PLATFORM: x64
+  OUTPUT_EXE: "App\\Aliens_Days.exe"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build (Release/x64)
+        run: msbuild $env:SOLUTION_FILE /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /m
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $pkg = "AliensDays-$version-win64"
+          New-Item -ItemType Directory -Force -Path "dist\$pkg" | Out-Null
+
+          
+          $exe = $null
+          if (Test-Path $env:OUTPUT_EXE) {
+            $exe = Get-Item $env:OUTPUT_EXE
+          }
+          if (-not $exe) {
+            $exe = Get-ChildItem -Recurse -Filter *.exe | Where-Object {
+              $_.FullName -match "\\(x64|Win32)\\$env:CONFIG\\" -and $_.Name -match "Alien"
+            } | Select-Object -First 1
+          }
+          if (-not $exe) {
+            Write-Error "Executable not found. OUTPUT_EXE Ç©íTçıèåèÇÇ†Ç»ÇΩÇÃèoóÕêÊÇ…çáÇÌÇπÇƒÇ≠ÇæÇ≥Ç¢ÅB"
+          }
+
+          Copy-Item $exe.FullName "dist\$pkg\Aliens_Days.exe"
+
+       
+          $assetDirs = @(
+            "App\Sprites",
+            "App\Sounds",
+            "App\Shaders",
+            "App\Stages",
+            "App\UI",
+            "App\dll",
+            "App\engine"
+          )
+          foreach ($d in $assetDirs) {
+            if (Test-Path $d) {
+              $leaf = Split-Path $d -Leaf
+              Copy-Item -Recurse -Force $d "dist\$pkg\$leaf"
+            }
+          }
+
+         
+          foreach ($f in @("README.md","README.txt","LICENSE","App\icon.ico")) {
+            if (Test-Path $f) { Copy-Item $f "dist\$pkg\" }
+          }
+
+        
+          $zip = "dist\$pkg.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "dist\$pkg\*" -DestinationPath $zip
+
+          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.zip }}
