@@ -1,5 +1,6 @@
 ﻿#include "Player.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Systems/GamepadSystem.hpp"
 
 Player::Player()
 	: m_color(PlayerColor::Green)
@@ -329,32 +330,37 @@ void Player::handleInput()
 	const double BLOCK_SIZE = 64.0;
 
 	// 入力状態の取得
-	bool leftPressed = KeyLeft.pressed() || KeyA.pressed();
-	bool rightPressed = KeyRight.pressed() || KeyD.pressed();
-	bool downPressed = KeyDown.pressed() || KeyS.pressed();
-	bool jumpPressed = KeySpace.pressed() || KeyUp.pressed() || KeyW.pressed();
-	bool jumpDown = KeySpace.down() || KeyUp.down() || KeyW.down();
-	bool downDown = KeyDown.down() || KeyS.down();
+	const Pad::PS4Pad pad{ 0, 0.25 }; // プレイヤー0 / デッドゾーンお好みで
+
+	const bool leftPressed = KeyLeft.pressed() || KeyA.pressed() || pad.leftPressed();
+	const bool rightPressed = KeyRight.pressed() || KeyD.pressed() || pad.rightPressed();
+	const bool downPressed = KeyDown.pressed() || KeyS.pressed() || pad.downPressed();
+	const bool upPressed = KeyUp.pressed() || KeyW.pressed() || pad.upPressed();
 	bool hasHorizontalInput = leftPressed || rightPressed;
+	// ジャンプは Space/↑/W/×
+	const bool jumpPressed = KeySpace.pressed() || KeyUp.pressed() || KeyW.pressed() || pad.squarePressed();
+	const bool jumpDown = KeySpace.down() || KeyUp.down() || KeyW.down() || pad.squareDown();
+
+	// 攻撃は F/〇（必要なら□/△も割り当て）
+	const bool fireDown = KeyF.down() || pad.circleDown();
+
 
 	// 方向設定
 	if (leftPressed) setDirection(PlayerDirection::Left);
 	if (rightPressed) setDirection(PlayerDirection::Right);
 
-	// ヒップドロップ処理
-	if (m_isHipDropping)
-	{
-		updateHipDrop();
-		if (KeyF.down()) fireFireball();
-		return;
+	// ヒップドロップ中
+	if (m_currentState == PlayerState::HipDrop) {
+		updateHipDrop();           // 専用の更新処理
+		if (fireDown) fireFireball();
+		return;                    // ← 他の Walk / Idle / Duck などに切り替えさせない
 	}
 
 	// ヒップドロップ開始判定
-	if (downDown && !m_isGrounded && m_currentState != PlayerState::Hit)
-	{
+	if (downPressed && !m_isGrounded && m_currentState != PlayerState::Hit) {
 		startHipDrop();
-		if (KeyF.down()) fireFireball();
-		return;
+		if (fireDown) fireFireball();
+		return; // ここで return することで、開始フレームに他の状態へ行かない
 	}
 
 	// ★ 改善されたジャンプ処理
@@ -441,22 +447,27 @@ void Player::handleInput()
 		}
 	}
 
-	// しゃがみ処理
-	if (downPressed && !hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit)
-	{
+	// しゃがみ開始判定
+	if (downPressed && !hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit) {
 		setState(PlayerState::Duck);
 		m_velocity.x *= 0.5;
 	}
-	else if (m_currentState == PlayerState::Duck && !downPressed)
-	{
-		setState(PlayerState::Idle);
+
+	// Duck中の固定処理
+	if (m_currentState == PlayerState::Duck) {
+		if (downPressed) {
+			// Duck固定中の処理
+			m_velocity.x *= 0.5;  // しゃがみ中は移動制御を抑制
+			if (fireDown) fireFireball();
+			return;              // Idle / Walk などに切り替えさせない
+		}
+		else {
+			// 下を離したらIdleへ戻す
+			setState(PlayerState::Idle);
+			// returnしない → Idleに戻した後は通常処理に合流
+		}
 	}
 
-	// ファイアボール
-	if (KeyF.down())
-	{
-		fireFireball();
-	}
 }
 
 

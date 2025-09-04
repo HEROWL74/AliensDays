@@ -444,34 +444,30 @@ bool BlockSystem::checkPlayerHitFromBelow(const Block& block, Player* player) co
 	const Vec2 playerPos = player->getPosition();
 	const Vec2 playerVel = player->getVelocity();
 	const double BLOCK_SIZE = 64.0;
-
-	// ★ 重要: ブロック叩き判定を厳格化
 	const double halfSize = BLOCK_SIZE / 2.0;
 
 	// プレイヤーの衝突矩形（1ブロックサイズ）
 	const RectF playerRect(
-		playerPos.x - halfSize,
-		playerPos.y - halfSize,
-		BLOCK_SIZE,
-		BLOCK_SIZE
+	playerPos.x - halfSize,
+	playerPos.y - halfSize,
+	BLOCK_SIZE, BLOCK_SIZE
 	);
 
 	// ブロックの衝突矩形
 	const RectF blockRect(block.position.x, block.position.y, BLOCK_SIZE, BLOCK_SIZE);
 
-	// X軸の重なり判定（1ブロック基準）
-	const double playerLeft = playerRect.x;
-	const double playerRight = playerRect.x + playerRect.w;
-	const double blockLeft = blockRect.x;
-	const double blockRight = blockRect.x + blockRect.w;
+	{
+		const double playerLeft = playerRect.x;
+		const double playerRight = playerRect.x + playerRect.w;
+		const double blockLeft = blockRect.x;
+		const double blockRight = blockRect.x + blockRect.w;
 
-	// 水平方向の十分な重なりがあるかチェック（最低30%の重なりが必要）
-	const double overlapLeft = Math::Max(playerLeft, blockLeft);
-	const double overlapRight = Math::Min(playerRight, blockRight);
-	const double overlapWidth = overlapRight - overlapLeft;
-	const double minOverlap = BLOCK_SIZE * 0.3; // 30%以上の重なりが必要
-
-	if (overlapWidth < minOverlap) return false;
+		const double overlapLeft = Math::Max(playerLeft, blockLeft);
+		const double overlapRight = Math::Min(playerRight, blockRight);
+		const double overlapWidth = overlapRight - overlapLeft;
+		const double minOverlap = BLOCK_SIZE * 0.20; // 20%
+		if (overlapWidth < minOverlap) return false;
+	}
 
 	// Y軸の位置関係判定（より厳格に）
 	const double playerTop = playerRect.y;
