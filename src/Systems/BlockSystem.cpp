@@ -115,57 +115,75 @@ void BlockSystem::updateBlockInteractions(Player* player)
 		const double distance = block->position.distanceFrom(playerPos);
 		const double INTERACTION_RANGE = BLOCK_SIZE * 2.0;
 
-		if (block->wasHit && distance > INTERACTION_RANGE)
+		// ★ 修正：ヒットフラグのリセット条件を改善
+		if (block->wasHit)
 		{
-			block->wasHit = false;
+			// 範囲外になったらリセット
+			if (distance > INTERACTION_RANGE)
+			{
+				block->wasHit = false;
+			}
+			// ★ 追加：ヒップドロップが終了したらリセット
+			else if (!player->isHipDropping() && block->wasHipDropDestroyed)
+			{
+				block->wasHit = false;
+				block->wasHipDropDestroyed = false;
+			}
+			// ★ 追加：プレイヤーが上向きに移動し始めたら通常ヒットもリセット
+			else if (player->getVelocity().y < -100.0)
+			{
+				block->wasHit = false;
+			}
 		}
 
-		//ヒップドロップ判定を最優先でチェック
-		if (!block->wasHit && player->isHipDropping() && checkPlayerHipDropHit(*block, player))
+		// 既にヒットされた場合は処理をスキップ
+		if (block->wasHit) continue;
+
+		// ★ 修正：判定を分離してデバッグしやすく
+		bool normalHit = false;
+		bool hipDropHit = false;
+
+		// 通常の下からのヒット判定
+		if (!player->isHipDropping())
+		{
+			normalHit = checkPlayerHitFromBelow(*block, player);
+		}
+
+		// ヒップドロップ判定
+		if (player->isHipDropping())
+		{
+			hipDropHit = checkPlayerHipDropHit(*block, player);
+		}
+
+		// どちらかのヒット判定が成功した場合
+		if (normalHit || hipDropHit)
 		{
 			block->wasHit = true;
-			block->wasHipDropDestroyed = false; // ★ フラグをリセット
 
 			switch (block->type)
 			{
 			case BlockType::COIN_BLOCK:
 				handleCoinBlockHit(*block);
+				if (hipDropHit) block->wasHipDropDestroyed = true;
 				break;
 			case BlockType::BRICK_BLOCK:
 				handleBrickBlockHit(*block);
+				if (hipDropHit) block->wasHipDropDestroyed = true;
 				break;
 			}
 
-			// ヒップドロップでブロックを破壊した場合の処理
-			if (block->wasHipDropDestroyed)
+			// ヒップドロップでブロックを破壊した場合の追加処理
+			if (hipDropHit && block->wasHipDropDestroyed && m_hipDropDestructionCallback)
 			{
-				// GameSceneにシェーダーエフェクト発動を通知
-				if (m_hipDropDestructionCallback)
-				{
-					m_hipDropDestructionCallback(block->position);
-				}
-				block->wasHipDropDestroyed = false; // フラグをリセット
-			}
-		}
-		// 通常のヒット判定（ヒップドロップ中でない場合）
-		else if (!block->wasHit && !player->isHipDropping() && checkPlayerHitFromBelow(*block, player))
-		{
-			block->wasHit = true;
-
-			switch (block->type)
-			{
-			case BlockType::COIN_BLOCK:
-				handleCoinBlockHit(*block);
-				break;
-			case BlockType::BRICK_BLOCK:
-				handleBrickBlockHit(*block);
-				break;
+				m_hipDropDestructionCallback(block->position);
+				block->wasHipDropDestroyed = false;
 			}
 		}
 	}
 
 	updateFragments();
 
+	// 破壊されたブロックと寿命の尽きた破片を削除
 	m_blocks.erase(
 		std::remove_if(m_blocks.begin(), m_blocks.end(),
 			[](const std::unique_ptr<Block>& block) {
@@ -182,7 +200,6 @@ void BlockSystem::updateBlockInteractions(Player* player)
 		m_fragments.end()
 	);
 }
-
 void BlockSystem::updateBlockAnimation(Block& block)
 {
 	// バウンスアニメーション更新のみ
@@ -446,63 +463,31 @@ bool BlockSystem::checkPlayerHitFromBelow(const Block& block, Player* player) co
 	const double BLOCK_SIZE = 64.0;
 	const double halfSize = BLOCK_SIZE / 2.0;
 
-	// プレイヤーの衝突矩形（1ブロックサイズ）
+	// プレイヤーの衝突矩形
 	const RectF playerRect(
-	playerPos.x - halfSize,
-	playerPos.y - halfSize,
-	BLOCK_SIZE, BLOCK_SIZE
+		playerPos.x - halfSize,
+		playerPos.y - halfSize,
+		BLOCK_SIZE, BLOCK_SIZE
 	);
 
 	// ブロックの衝突矩形
 	const RectF blockRect(block.position.x, block.position.y, BLOCK_SIZE, BLOCK_SIZE);
 
-	{
-		const double playerLeft = playerRect.x;
-		const double playerRight = playerRect.x + playerRect.w;
-		const double blockLeft = blockRect.x;
-		const double blockRight = blockRect.x + blockRect.w;
+	// 基本的な重なりチェック
+	if (!playerRect.intersects(blockRect)) return false;
 
-		const double overlapLeft = Math::Max(playerLeft, blockLeft);
-		const double overlapRight = Math::Min(playerRight, blockRight);
-		const double overlapWidth = overlapRight - overlapLeft;
-		const double minOverlap = BLOCK_SIZE * 0.20; // 20%
-		if (overlapWidth < minOverlap) return false;
-	}
-
-	// Y軸の位置関係判定（より厳格に）
+	// プレイヤーがブロックの下側にいることを確認
 	const double playerTop = playerRect.y;
-	const double playerBottom = playerRect.y + playerRect.h;
-	const double blockTop = blockRect.y;
 	const double blockBottom = blockRect.y + blockRect.h;
 
-	// ★ 修正: より厳格な下からのヒット判定
-	const double HIT_TOLERANCE = BLOCK_SIZE * 0.2; // 許容範囲を狭く
+	// ★ 簡素化：プレイヤーの上端がブロックの下端付近にある
+	bool isPlayerBelow = (playerTop > blockBottom - BLOCK_SIZE * 0.3) &&
+		(playerTop < blockBottom + BLOCK_SIZE * 0.3);
 
-	// プレイヤーの上端がブロックの下端付近にあるかチェック
-	bool isPlayerBelow = (playerTop > blockBottom - HIT_TOLERANCE) &&
-		(playerTop < blockBottom + HIT_TOLERANCE);
+	// ★ 簡素化：上向きの速度があるかチェック
+	bool isMovingUp = playerVel.y < -30.0;
 
-	// ★ 重要: 上向きの動きがあるかの厳格なチェック
-	bool isMovingUp = false;
-
-	if (player->getCurrentState() == PlayerState::Jump && playerVel.y < -50.0)
-	{
-		// ジャンプ状態で十分な上向き速度がある
-		isMovingUp = true;
-	}
-	else if (player->isInJumpState() && playerVel.y < -30.0)
-	{
-		// ジャンプ状態タイマーが有効で上向き速度がある
-		isMovingUp = true;
-	}
-
-
-	// ★ 追加条件: プレイヤーが前フレームより上に移動している
-	static Vec2 previousPlayerPos = playerPos;
-	bool isMovingUpward = (playerPos.y < previousPlayerPos.y - 1.0);
-	previousPlayerPos = playerPos;
-
-	return (isPlayerBelow && isMovingUp && isMovingUpward);
+	return (isPlayerBelow && isMovingUp);
 }
 
 // ★ レガシーメソッド（互換性のため保持、段階的削除予定）
@@ -1040,18 +1025,19 @@ void BlockSystem::generateBlocksForDirtStage()
 
 bool BlockSystem::checkPlayerHipDropHit(const Block& block, Player* player) const
 {
-	if (!player || !player->isHipDropping()) return false;
+	if (!player) return false;
+
+	// ★ 修正：ヒップドロップ状態の厳格なチェック
+	if (!player->isHipDropping()) return false;
 
 	const Vec2 playerPos = player->getPosition();
 	const Vec2 playerVel = player->getVelocity();
 	const double BLOCK_SIZE = 64.0;
-
-	// ヒップドロップ中で下向きに移動している必要がある
-	if (playerVel.y <= 100.0) return false; // 十分な下向き速度が必要
-
 	const double halfSize = BLOCK_SIZE / 2.0;
 
-	// プレイヤーの衝突矩形
+	// ★ 修正：下向きの速度チェック（ヒップドロップ中は高速で下降）
+	if (playerVel.y <= 200.0) return false; // 200以上の下向き速度
+
 	const RectF playerRect(
 		playerPos.x - halfSize,
 		playerPos.y - halfSize,
@@ -1059,22 +1045,20 @@ bool BlockSystem::checkPlayerHipDropHit(const Block& block, Player* player) cons
 		BLOCK_SIZE
 	);
 
-	// ブロックの衝突矩形
 	const RectF blockRect(block.position.x, block.position.y, BLOCK_SIZE, BLOCK_SIZE);
 
-	// 基本的な矩形の重なり判定
+	// 基本的な重なりチェック
 	if (!playerRect.intersects(blockRect)) return false;
 
-	// ヒップドロップは上からの攻撃なので、プレイヤーがブロックの上にいる必要がある
+	// プレイヤーがブロックの上から接触しているかチェック
 	const double playerBottom = playerRect.y + playerRect.h;
 	const double blockTop = blockRect.y;
-	const double HIP_DROP_TOLERANCE = BLOCK_SIZE * 0.7; // ヒップドロップは範囲が広い
 
-	// プレイヤーの下端がブロックの上端付近にある
-	bool isPlayerAbove = (playerBottom >= blockTop - HIP_DROP_TOLERANCE) &&
-		(playerBottom <= blockTop + HIP_DROP_TOLERANCE);
+	// ★ 簡素化：プレイヤーの下端がブロックの上端付近にある
+	bool isPlayerAbove = (playerBottom >= blockTop - BLOCK_SIZE * 0.2) &&
+		(playerBottom <= blockTop + BLOCK_SIZE * 0.4);
 
-	// X軸の重なりもチェック（最低50%の重なりが必要）
+	// X軸の重なりチェック
 	const double playerLeft = playerRect.x;
 	const double playerRight = playerRect.x + playerRect.w;
 	const double blockLeft = blockRect.x;

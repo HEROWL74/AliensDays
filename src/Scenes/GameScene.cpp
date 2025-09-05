@@ -193,15 +193,6 @@ void GameScene::update()
 		return;
 	}
 
-	if (m_player && m_player->isHipDropping() && m_player->isGrounded())
-	{
-		if (m_shaderEffects && m_stage)
-		{
-			const Vec2 playerPos = m_player->getPosition();
-			m_shaderEffects->triggerShockwave(playerPos, m_stage->getCameraOffset());
-		}
-	}
-
 	if (m_shaderEffects)
 	{
 		m_shaderEffects->update(Scene::DeltaTime());
@@ -211,6 +202,7 @@ void GameScene::update()
 	{
 		m_dayNightSystem->update();
 	}
+
 	// ゴール判定（プレイヤー更新前にチェック）
 	updateGoalCheck();
 
@@ -219,19 +211,30 @@ void GameScene::update()
 		return;
 	}
 
-	// ★ 緊急修正: プレイヤーの更新のみ実行（衝突判定は内部で処理）
+	// ★ プレイヤーの更新のみ実行（衝突判定は内部で処理）
 	if (m_player)
 	{
 		m_player->update();
 	}
 
+	// ★ プレイヤー更新後にヒップドロップ着地判定をチェック
+	if (m_player && m_player->hasJustLandedFromHipDrop())
+	{
+		if (m_shaderEffects && m_stage)
+		{
+			const Vec2 playerPos = m_player->getPosition();
+			m_shaderEffects->triggerShockwave(playerPos, m_stage->getCameraOffset());
+		}
+		m_player->clearHipDropLandedFlag();
+	}
+
 	if (!m_player || !m_player->isExploding())
 	{
-		// ★ 重要修正: 統一衝突判定システムを復活
-		updatePlayerCollisionsUnified();
-
-		// その他のシステム更新
+		// BlockSystemの相互作用を衝突判定前に処理
 		updateBlockSystemInteractions();
+
+		// 統一衝突判定システム（物理的な位置調整）
+		updatePlayerCollisionsUnified();
 		updateCollectionSystems();
 		m_hudSystem->update();
 		updateHUDWithCollectedItems();
@@ -269,7 +272,6 @@ void GameScene::update()
 	{
 		m_shaderEffects->enableChromatic(false);
 	}
-
 
 #ifdef _DEBUG
 	// デバッグ用ステージ切り替え
@@ -1758,9 +1760,25 @@ void GameScene::updatePlayerCollisionsUnified()
 {
 	if (!m_player || !m_collisionSystem) return;
 
-	// 新しい統一衝突判定システムで全ての衝突を処理
+	// ★ 修正：ヒップドロップ状態の正しい処理
+	// ヒップドロップ中でも衝突判定は必要（地面への着地判定のため）
 	m_collisionSystem->resolvePlayerCollisions(m_player.get(), m_stage.get(), m_blockSystem.get());
+
+	// ★ 重要：ヒップドロップ着地後の処理を追加
+	if (m_player->hasJustLandedFromHipDrop())
+	{
+		// シェーダーエフェクトを発動
+		if (m_shaderEffects && m_stage)
+		{
+			const Vec2 playerPos = m_player->getPosition();
+			m_shaderEffects->triggerShockwave(playerPos, m_stage->getCameraOffset());
+		}
+
+		// フラグをクリア
+		m_player->clearHipDropLandedFlag();
+	}
 }
+
 
 // BlockSystemとの相互作用のみを処理
 void GameScene::updateBlockSystemInteractions()

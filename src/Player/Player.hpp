@@ -126,6 +126,7 @@ private:
 	// ヒップドロップ関連
 	bool m_isHipDropping;
 	double m_hipDropTimer;
+	bool m_hipDropJustLanded; // 着地した瞬間を検知するフラグ
 	static constexpr double HIP_DROP_FORCE = 1200.0;
 	static constexpr double HIP_DROP_DURATION = 0.3;
 
@@ -216,6 +217,8 @@ public:
 	void updateHipDrop();
 	bool isHipDropping() const { return m_isHipDropping; }
 	double getHipDropTimer() const { return m_hipDropTimer; }
+	bool hasJustLandedFromHipDrop() const { return m_hipDropJustLanded; }
+	void clearHipDropLandedFlag() { m_hipDropJustLanded = false; }
 
 	// キャラクター情報
 	PlayerColor getColor() const { return m_color; }

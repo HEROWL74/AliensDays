@@ -20,6 +20,7 @@ Player::Player()
 	, m_fireballCount(0)
 	, m_isHipDropping(false)
 	, m_hipDropTimer(0.0)
+	,m_hipDropJustLanded(false)
 {
 	// パーティクル配列をクリア
 	m_explosionParticles.clear();
@@ -44,6 +45,7 @@ Player::Player(PlayerColor color, const Vec2& startPosition)
 	, m_explosionTimer(0.0)
 	, m_deathTimer(0.0)
 	, m_fireballCount(0)
+	,m_hipDropJustLanded(false)
 {
 	// パーティクル配列をクリア
 	m_explosionParticles.clear();
@@ -74,6 +76,10 @@ void Player::init(PlayerColor color, const Vec2& startPosition)
 	m_isExploding = false;
 	m_explosionTimer = 0.0;
 	m_deathTimer = 0.0;
+
+	m_isHipDropping = false;
+	m_hipDropTimer = 0.0;
+	m_hipDropJustLanded = false;
 
 	// ★ ファイアボール関連もリセット
 	m_fireballCount = 0;
@@ -330,20 +336,17 @@ void Player::handleInput()
 	const double BLOCK_SIZE = 64.0;
 
 	// 入力状態の取得
-	const Pad::PS4Pad pad{ 0, 0.25 }; // プレイヤー0 / デッドゾーンお好みで
+	const Pad::PS4Pad pad{ 0, 0.25 };
 
 	const bool leftPressed = KeyLeft.pressed() || KeyA.pressed() || pad.leftPressed();
 	const bool rightPressed = KeyRight.pressed() || KeyD.pressed() || pad.rightPressed();
 	const bool downPressed = KeyDown.pressed() || KeyS.pressed() || pad.downPressed();
 	const bool upPressed = KeyUp.pressed() || KeyW.pressed() || pad.upPressed();
 	bool hasHorizontalInput = leftPressed || rightPressed;
-	// ジャンプは Space/↑/W/×
+
 	const bool jumpPressed = KeySpace.pressed() || KeyUp.pressed() || KeyW.pressed() || pad.squarePressed();
 	const bool jumpDown = KeySpace.down() || KeyUp.down() || KeyW.down() || pad.squareDown();
-
-	// 攻撃は F/〇（必要なら□/△も割り当て）
 	const bool fireDown = KeyF.down() || pad.circleDown();
-
 
 	// 方向設定
 	if (leftPressed) setDirection(PlayerDirection::Left);
@@ -351,52 +354,61 @@ void Player::handleInput()
 
 	// ヒップドロップ中
 	if (m_currentState == PlayerState::HipDrop) {
-		updateHipDrop();           // 専用の更新処理
+		updateHipDrop();
 		if (fireDown) fireFireball();
-		return;                    // ← 他の Walk / Idle / Duck などに切り替えさせない
+		return;
+	}
+
+	// ★ 修正：Duck状態の処理を改善
+	if (m_currentState == PlayerState::Duck) {
+		// Duck状態でファイアボール発射を許可
+		if (fireDown) fireFireball();
+
+		// Duck状態維持の条件チェック
+		if (downPressed && !hasHorizontalInput) {
+			// Duck状態を維持
+			m_velocity.x *= 0.5; // 速度を減速
+			return; // 他の入力処理をスキップ
+		}
+		// Duck解除の条件は updateStateTransitions() で処理されるため、ここでは何もしない
+		return;
 	}
 
 	// ヒップドロップ開始判定
-	if (downPressed && !m_isGrounded && m_currentState != PlayerState::Hit) {
+	if (downPressed && !m_isGrounded && m_currentState != PlayerState::Hit &&
+		m_velocity.y >= 0 && !m_isHipDropping) {
 		startHipDrop();
 		if (fireDown) fireFireball();
-		return; // ここで return することで、開始フレームに他の状態へ行かない
+		return;
 	}
 
-	// ★ 改善されたジャンプ処理
 	if (jumpDown && m_isGrounded && m_currentState != PlayerState::Hit)
 	{
 		jump();
 	}
-	// ★ 可変高さジャンプの改良
+
 	if (!jumpPressed && m_velocity.y < 0.0 && !m_isGrounded)
 	{
-		// ジャンプボタンを離したら上昇力を大幅に減衰
 		m_velocity.y *= 0.3;
 	}
 
-	// ★ 改善された水平移動処理 - 壁際の挙動を改良
 	if (hasHorizontalInput && !downPressed)
 	{
 		double baseMoveSpeed = BLOCK_SIZE * 5.0;
 		double moveSpeed = baseMoveSpeed * m_stats.moveSpeed;
 
-		// 地上と空中で異なる制御
 		if (m_isGrounded)
 		{
-			// ★ 修正: 地上での移動をより滑らかに
 			double targetVelX = (rightPressed ? 1.0 : -1.0) * moveSpeed;
 
-			// 現在の速度が0に近く、目標速度と逆方向の場合は即座に変更
 			if (Math::Abs(m_velocity.x) < 10.0 ||
 				(m_velocity.x > 0 && targetVelX < 0) ||
 				(m_velocity.x < 0 && targetVelX > 0))
 			{
-				m_velocity.x = targetVelX * 0.7; // 即座に70%の速度で開始
+				m_velocity.x = targetVelX * 0.7;
 			}
 			else
 			{
-				// 通常の加速処理
 				m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, 0.25);
 			}
 
@@ -407,11 +419,8 @@ void Player::handleInput()
 		}
 		else
 		{
-			// ★ 修正: 空中での移動制御を改良
 			double airMoveSpeed = moveSpeed * 0.75;
 			double targetVelX = (rightPressed ? 1.0 : -1.0) * airMoveSpeed;
-
-			// 空中では壁に当たっていても入力方向に少し力を加える
 			double airControl = 0.12;
 			m_velocity.x = Math::Lerp(m_velocity.x, targetVelX, airControl);
 		}
@@ -424,10 +433,8 @@ void Player::handleInput()
 	}
 	else if (!downPressed)
 	{
-		// ★ 修正: 入力がない場合の減速を改良
 		if (m_isGrounded)
 		{
-			// 地上：強い摩擦だが、壁に当たっている時は即座に停止
 			const double friction = (Math::Abs(m_velocity.x) > BASE_MOVE_SPEED * 0.1) ? 0.75 : 0.5;
 			m_velocity.x *= friction;
 
@@ -443,29 +450,15 @@ void Player::handleInput()
 		}
 		else
 		{
-			m_velocity.x *= 0.98;  // 空中：非常に弱い空気抵抗
+			m_velocity.x *= 0.98;
 		}
 	}
 
-	// しゃがみ開始判定
-	if (downPressed && !hasHorizontalInput && m_isGrounded && m_currentState != PlayerState::Hit) {
+	// ★ 修正：地上でのしゃがみ処理を改善
+	if (downPressed && !hasHorizontalInput && m_isGrounded &&
+		m_currentState != PlayerState::Hit && m_currentState != PlayerState::Duck) {
 		setState(PlayerState::Duck);
 		m_velocity.x *= 0.5;
-	}
-
-	// Duck中の固定処理
-	if (m_currentState == PlayerState::Duck) {
-		if (downPressed) {
-			// Duck固定中の処理
-			m_velocity.x *= 0.5;  // しゃがみ中は移動制御を抑制
-			if (fireDown) fireFireball();
-			return;              // Idle / Walk などに切り替えさせない
-		}
-		else {
-			// 下を離したらIdleへ戻す
-			setState(PlayerState::Idle);
-			// returnしない → Idleに戻した後は通常処理に合流
-		}
 	}
 
 	if (fireDown)
@@ -473,7 +466,6 @@ void Player::handleInput()
 		fireFireball();
 	}
 }
-
 
 void Player::checkBasicGroundCollision()
 {
@@ -509,10 +501,9 @@ void Player::checkBasicGroundCollision()
 	}
 }
 
+
 void Player::updateStateTransitions()
 {
-
-
 	// ヒット状態の自動解除
 	if (m_currentState == PlayerState::Hit && m_stateTimer >= HIT_DURATION)
 	{
@@ -526,8 +517,73 @@ void Player::updateStateTransitions()
 		}
 	}
 
-	// ★ より自然なジャンプ状態の判定
-	const double JUMP_VELOCITY_THRESHOLD = -30.0;  // より低い閾値
+	// ★ 修正：ヒップドロップ状態の処理を改善
+	if (m_currentState == PlayerState::HipDrop)
+	{
+		// ヒップドロップが終了していたら適切な状態に遷移
+		if (!m_isHipDropping)
+		{
+			// ★ 重要：現在の入力状態を確認して適切な状態に遷移
+			bool downPressed = KeyDown.pressed() || KeyS.pressed();
+			bool hasHorizontalInput = KeyLeft.pressed() || KeyA.pressed() ||
+				KeyRight.pressed() || KeyD.pressed();
+
+			if (m_isGrounded)
+			{
+				// 地上での状態遷移
+				if (downPressed && !hasHorizontalInput)
+				{
+					setState(PlayerState::Duck);
+				}
+				else if (hasHorizontalInput)
+				{
+					setState(PlayerState::Walk);
+				}
+				else
+				{
+					setState(PlayerState::Idle);
+				}
+			}
+			else
+			{
+				// 空中での状態遷移
+				setState(PlayerState::Jump);
+			}
+		}
+		return; // ヒップドロップ中は他の状態遷移をスキップ
+	}
+
+	// ★ 修正：Duck状態の維持処理を改善
+	if (m_currentState == PlayerState::Duck)
+	{
+		bool downPressed = KeyDown.pressed() || KeyS.pressed();
+		bool hasHorizontalInput = KeyLeft.pressed() || KeyA.pressed() ||
+			KeyRight.pressed() || KeyD.pressed();
+
+		// Downキーが押されていない、または水平移動入力がある場合のみ状態変更
+		if (!downPressed || hasHorizontalInput)
+		{
+			if (m_isGrounded)
+			{
+				if (hasHorizontalInput)
+				{
+					setState(PlayerState::Walk);
+				}
+				else
+				{
+					setState(PlayerState::Idle);
+				}
+			}
+			else
+			{
+				setState(PlayerState::Jump);
+			}
+		}
+		return; // Duck状態の場合は他の遷移をスキップ
+	}
+
+	// 通常の状態遷移ロジック
+	const double JUMP_VELOCITY_THRESHOLD = -30.0;
 
 	if (m_velocity.y < JUMP_VELOCITY_THRESHOLD && !m_isGrounded)
 	{
@@ -543,24 +599,24 @@ void Player::updateStateTransitions()
 		m_jumpStateTimer = 0.0;
 	}
 
-	// ★ 改善された状態遷移ロジック
+	// 空中での状態遷移
 	if (!m_isGrounded)
 	{
-		// 空中にいる場合はジャンプ状態
 		if (m_currentState != PlayerState::Jump &&
-			m_currentState != PlayerState::Hit)
+			m_currentState != PlayerState::Hit &&
+			m_currentState != PlayerState::HipDrop)
 		{
 			setState(PlayerState::Jump);
 		}
 	}
+	// 地上での状態遷移
 	else if (m_isGrounded && m_currentState == PlayerState::Jump)
 	{
-		// 着地時の状態遷移
 		bool downPressed = KeyDown.pressed() || KeyS.pressed();
 		bool hasHorizontalInput = KeyLeft.pressed() || KeyA.pressed() ||
 			KeyRight.pressed() || KeyD.pressed();
 
-		if (downPressed)
+		if (downPressed && !hasHorizontalInput)
 		{
 			setState(PlayerState::Duck);
 		}
@@ -580,6 +636,7 @@ void Player::updateStateTransitions()
 		m_jumpStateTimer -= Scene::DeltaTime();
 	}
 }
+
 
 void Player::updateGroundStateTransitions()
 {
@@ -677,6 +734,9 @@ Texture Player::getCurrentTexture() const
 	case PlayerState::Duck:
 		textureKey = U"duck";
 		break;
+	case PlayerState::HipDrop:
+		textureKey = U"jump"; 
+		break;
 	case PlayerState::Hit:
 		textureKey = U"hit";
 		break;
@@ -707,7 +767,6 @@ Texture Player::getCurrentTexture() const
 		return Texture{};
 	}
 }
-
 
 double Player::getScale() const
 {
@@ -1202,27 +1261,37 @@ bool Player::wasMovingUpward() const
 	return m_position.y < m_previousPosition.y - 1.0;
 }
 
+
 void Player::startHipDrop()
 {
+	// ★ 修正：より厳格な開始条件
 	if (m_isGrounded) return; // 地上では実行できない
+	if (m_isHipDropping) return; // 既にヒップドロップ中なら無視
+	if (m_currentState == PlayerState::Hit) return; // ヒット中は無視
 
+	// ヒップドロップ開始
 	m_isHipDropping = true;
 	m_hipDropTimer = 0.0;
+	m_hipDropJustLanded = false; // フラグをリセット
 
 	// 強力な下向きの力を加える
-	m_velocity.x *= 0.5; // 横移動を大幅に減速（完全停止ではなく制御可能に）
-	m_velocity.y = HIP_DROP_FORCE;
+	m_velocity.x *= 0.5; // 横移動を減速
+	m_velocity.y = HIP_DROP_FORCE; // 強力な下向きの力
 
-	// ヒップドロップ状態に設定
-	setState(PlayerState::Jump);
+	// ★ 重要：ヒップドロップ状態に設定
+	setState(PlayerState::HipDrop);
 
+	// チュートリアル通知
 	if (!m_tutorialNotifiedHipDrop)
 	{
 		m_tutorialNotifiedHipDrop = true;
 		TutorialEmit(TutorialEvent::HipDrop, m_position);
 	}
+
+	// 開始音を再生
 	SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_HIT);
 }
+
 
 void Player::updateHipDrop()
 {
@@ -1231,21 +1300,24 @@ void Player::updateHipDrop()
 	const double deltaTime = Scene::DeltaTime();
 	m_hipDropTimer += deltaTime;
 
-	// 最大時間または地面に着地したら終了
-	if (m_hipDropTimer >= HIP_DROP_DURATION || m_isGrounded)
+	// 地面に着地した場合
+	if (m_isGrounded)
 	{
+		m_hipDropJustLanded = true;
 		m_isHipDropping = false;
 		m_hipDropTimer = 0.0;
 
-		// 地面に着地した場合の衝撃エフェクト
-		if (m_isGrounded)
-		{
-			// 着地音を再生（より強力な音に変更）
-			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_BREAK_BLOCK);
+		// 着地音を再生
+		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_BREAK_BLOCK);
 
-			// 小さなバウンドを追加（ヒップドロップの衝撃を表現）
-			m_velocity.y = -100.0; // 軽いバウンド
-		}
+		// 小さなバウンドを追加
+		m_velocity.y = -100.0;
+	}
+	// 最大時間に達した場合も終了
+	else if (m_hipDropTimer >= HIP_DROP_DURATION)
+	{
+		m_isHipDropping = false;  
+		m_hipDropTimer = 0.0;
 	}
 }
 
