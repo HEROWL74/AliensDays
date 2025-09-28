@@ -79,7 +79,7 @@
 
 ## 👤 作者
 
-- 名前：砥川展明（とがわ ひろあき）（高校2年生 / C++ゲーム開発者）
+- 名前：HEROWL
 - GitHub：[https://github.com/yourname](https://github.com/HEROWL74)
 - 使用エンジン：Siv3D / DirectX12 自作エンジン
 - 活動記録：九州学生ゲーム大祭 2025 出展 / Bit Summit 13th 出展
