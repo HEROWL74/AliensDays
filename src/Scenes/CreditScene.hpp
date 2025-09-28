@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "../Core/SceneBase.hpp"
+#include "../Systems/GamepadSystem.hpp"
+#include "../UI/ControlPanel.hpp"
 
 class CreditScene final : public SceneBase
 {
@@ -42,6 +44,7 @@ private:
 
 	Optional<SceneType> m_nextScene;
 
+	ControlPanel m_controlPanel;
 public:
 	CreditScene();
 	~CreditScene() override = default;

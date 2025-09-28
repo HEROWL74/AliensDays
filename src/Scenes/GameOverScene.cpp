@@ -65,6 +65,7 @@ void GameOverScene::draw() const
 	drawTitle();
 	drawStageInfo();
 	drawButtons();
+	m_controlPanel.draw(true);
 
 	// フェードイン効果
 	if (m_fadeAlpha > 0.0)
@@ -148,33 +149,29 @@ void GameOverScene::setupButtons()
 
 void GameOverScene::updateInput()
 {
-	// 前回の選択を保存
+	Pad::PS4Pad pad{ 0 };
 	const int previousSelection = m_selectedButton;
+	const Vec2 mousePos = Cursor::Pos();
 
-	// キーボード操作
-	if (KeyUp.down() || KeyW.down())
+	// 上下移動
+	if (KeyUp.down() || KeyW.down() || pad.dpadUpDown())
 	{
 		m_selectedButton = (m_selectedButton - 1 + static_cast<int>(m_buttons.size())) % static_cast<int>(m_buttons.size());
-
-		// 選択が変わった場合はSEを再生
 		if (m_selectedButton != previousSelection)
 		{
 			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		}
 	}
-	if (KeyDown.down() || KeyS.down())
+	if (KeyDown.down() || KeyS.down() || pad.dpadDownDown())
 	{
 		m_selectedButton = (m_selectedButton + 1) % static_cast<int>(m_buttons.size());
-
-		// 選択が変わった場合はSEを再生
 		if (m_selectedButton != previousSelection)
 		{
 			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		}
 	}
 
-	// マウス操作
-	const Vec2 mousePos = Cursor::Pos();
+	// マウスホバー
 	for (size_t i = 0; i < m_buttons.size(); ++i)
 	{
 		if (m_buttons[i].rect.contains(mousePos))
@@ -189,15 +186,14 @@ void GameOverScene::updateInput()
 	}
 
 	// 決定
-	if (KeyEnter.down() || KeySpace.down() ||
-		(MouseL.down() && m_buttons[m_selectedButton].rect.contains(mousePos)))
+	if (KeyEnter.down() || KeySpace.down() || (MouseL.down() && m_buttons[m_selectedButton].rect.contains(mousePos)) || pad.crossDown())
 	{
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		executeButton(m_selectedButton);
 	}
 
-	// ESCでタイトルに戻る
-	if (KeyEscape.down())
+	// 戻る
+	if (KeyEscape.down() || pad.circleDown())
 	{
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		GameScene::clearResultData();

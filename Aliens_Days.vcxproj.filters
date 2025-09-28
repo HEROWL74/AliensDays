@@ -762,7 +762,12 @@
     <None Include="App\Stages\Stage6.json">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="App\Stages\Tutorial.json" />
+    <None Include="App\Stages\Tutorial.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="App\Stages\BossLadders.json">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Media Include="App\example\test.mp3">
@@ -817,6 +822,15 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="App\Shaders\Wave.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\Fireball.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\Destruction.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="App\Shaders\LadderDestruction.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
@@ -1025,6 +1039,12 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\TutorialPanel.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Systems\GamepadSystem.hpp">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\ControlPanel.hpp">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

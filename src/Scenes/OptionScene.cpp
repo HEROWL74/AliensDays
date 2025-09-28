@@ -57,12 +57,61 @@ void OptionScene::update()
 {
 	if (!m_isDraggingSlider)
 	{
-		updateKeyboardInput();
+		Pad::PS4Pad pad{ 0 };
+
+		// アイテム選択
+		if (KeyUp.down() || KeyW.down() || pad.dpadUpDown())
+		{
+			m_selectedItem = (m_selectedItem - 1 + getTotalItemCount()) % getTotalItemCount();
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+		}
+		if (KeyDown.down() || KeyS.down() || pad.dpadDownDown())
+		{
+			m_selectedItem = (m_selectedItem + 1) % getTotalItemCount();
+			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+		}
+
+		// スライダー調整
+		if (isSliderIndex(m_selectedItem))
+		{
+			const int sliderIndex = getSliderIndex(m_selectedItem);
+			SliderData& slider = m_sliders[sliderIndex];
+
+			if (KeyLeft.down() || KeyA.down() || pad.dpadLeftDown())
+			{
+				slider.value = Math::Clamp(slider.value - 0.1, 0.0, 1.0);
+				slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
+				updateSliderValue(sliderIndex, slider.value);
+			}
+			if (KeyRight.down() || KeyD.down() || pad.dpadRightDown())
+			{
+				slider.value = Math::Clamp(slider.value + 0.1, 0.0, 1.0);
+				slider.handlePos.x = slider.barRect.x + slider.barRect.w * slider.value;
+				updateSliderValue(sliderIndex, slider.value);
+			}
+		}
+
+		// ボタン実行
+		if (KeyEnter.down() || KeySpace.down() || pad.crossDown())
+		{
+			if (!isSliderIndex(m_selectedItem))
+			{
+				const int buttonIndex = getButtonIndex(m_selectedItem);
+				executeButton(buttonIndex);
+			}
+		}
+
+		// 戻る
+		if (KeyEscape.down() || pad.circleDown())
+		{
+			m_nextScene = SceneType::Title;
+		}
 	}
 
 	updateMouseInput();
 	updateSliderDrag();
 }
+
 
 void OptionScene::draw() const
 {
@@ -71,6 +120,7 @@ void OptionScene::draw() const
 	drawTitle();
 	drawSliders();
 	drawButtons();
+	m_controlPanel.draw(true);
 
 	// 操作説明
 	const String instructions = U"↑↓: Select  ←→: Adjust  ENTER: Confirm  ESC: Back";

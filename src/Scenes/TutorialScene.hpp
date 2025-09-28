@@ -3,6 +3,7 @@
 #include "../Systems/TutorialEvents.hpp"
 #include "../UI/TutorialPanel.hpp"
 #include "../Enemies/EnemyFactory.hpp"
+#include "../Systems/GamepadSystem.hpp"
 #include "GameScene.hpp"
 
 class TutorialScene : public GameScene
@@ -13,7 +14,7 @@ public:
 	void init() override;
 	void update() override;
 	void draw() const override;
-	void cleanup() override; // ★ 追加
+	void cleanup() override;
 
 	Optional<SceneType> getNextScene() const override;
 
@@ -24,7 +25,7 @@ private:
 	int m_subId = 0;
 	TutorialPanel m_panel;
 
-	Optional<SceneType> m_nextScene = none; // ★ 修正: メンバー変数として追加
+	Optional<SceneType> m_nextScene = none;
 
 	void goTo(Step s);
 	void spawnFor(Step s);
