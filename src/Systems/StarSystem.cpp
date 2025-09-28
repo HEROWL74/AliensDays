@@ -375,7 +375,6 @@ void StarSystem::generateStarsForStage(StageNumber stageNumber)
 		generateStarsForDirtStage();
 		break;
 	default:
-		Print << U"Warning: Unknown stage number: " << static_cast<int>(stageNumber);
 		break;
 	}
 

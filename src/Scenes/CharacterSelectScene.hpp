@@ -2,6 +2,8 @@
 #include <Siv3D.hpp>
 #include "../Core/SceneBase.hpp"
 #include "../Player/PlayerColor.hpp"  // 共通のPlayerColorヘッダーをインクルード
+#include "../Systems/GamepadSystem.hpp"
+#include "../UI/ControlPanel.hpp"
 
 class CharacterSelectScene final : public SceneBase
 {
@@ -48,6 +50,7 @@ private:
 
 	Optional<SceneType> m_nextScene;
 
+	ControlPanel m_controlPanel;
 public:
 	CharacterSelectScene();
 	~CharacterSelectScene() override = default;

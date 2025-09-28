@@ -91,6 +91,7 @@ void CharacterSelectScene::draw() const
 	drawSparkles();
 	drawButtons();
 	drawInstructions();
+	m_controlPanel.draw(true);
 
 	// キャラクター特性を画面右側に表示
 	drawCharacterStats();
@@ -202,23 +203,19 @@ void CharacterSelectScene::setupButtons()
 
 void CharacterSelectScene::updateInput()
 {
-	// マウスホバー検出
+	Pad::PS4Pad pad{ 0 };
 	const Vec2 mousePos = Cursor::Pos();
-	m_selectButtonHovered = m_selectButtonRect.contains(mousePos);
-	m_backButtonHovered = m_backButtonRect.contains(mousePos);
-
-	// 前の選択を保存
 	const int previousCharacter = m_selectedCharacter;
 
-	// キャラクター選択（キーボード）
-	if (KeyLeft.down() || KeyA.down())
+	// 左右移動
+	if (KeyLeft.down() || KeyA.down() || pad.dpadLeftDown())
 	{
 		m_selectedCharacter = (m_selectedCharacter - 1 + static_cast<int>(m_characters.size())) % static_cast<int>(m_characters.size());
 		m_selectionTimer = 0.0;
 		createSparkleEffect(m_characters[m_selectedCharacter].displayPos);
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 	}
-	if (KeyRight.down() || KeyD.down())
+	if (KeyRight.down() || KeyD.down() || pad.dpadRightDown())
 	{
 		m_selectedCharacter = (m_selectedCharacter + 1) % static_cast<int>(m_characters.size());
 		m_selectionTimer = 0.0;
@@ -242,25 +239,22 @@ void CharacterSelectScene::updateInput()
 		}
 	}
 
-	// キャラクターが変更された場合、ステータス値を更新
+	// キャラ変更されたらステータス更新
 	if (m_selectedCharacter != previousCharacter)
 	{
 		updateTargetStatValues();
 	}
 
-	// 選択決定
-	if (KeyEnter.down() || KeySpace.down() ||
-		(MouseL.down() && m_selectButtonHovered) ||
-		(MouseL.down() && m_characters[m_selectedCharacter].rect.contains(mousePos)))
+	// 決定
+	if (KeyEnter.down() || KeySpace.down() || (MouseL.down() && m_selectButtonHovered) || pad.crossDown())
 	{
-		// 選択されたキャラクターを保存
 		s_selectedPlayerColor = m_characters[m_selectedCharacter].color;
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Game;
 	}
 
 	// 戻る
-	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered))
+	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered) || pad.circleDown())
 	{
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Title;

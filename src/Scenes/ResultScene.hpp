@@ -4,6 +4,8 @@
 #include "../Stages/Stage.hpp"
 #include "../Player/PlayerColor.hpp"
 #include "../Sound/SoundManager.hpp"
+#include "../Systems/GamepadSystem.hpp"
+#include "../UI/ControlPanel.hpp"
 
 class ResultScene final : public SceneBase
 {
@@ -107,6 +109,7 @@ private:
 
 	Optional<SceneType> m_nextScene;
 
+	ControlPanel m_controlPanel;
 public:
 	ResultScene();
 	~ResultScene() override = default;

@@ -116,6 +116,7 @@ void ResultScene::draw() const
 	drawButtons();
 	drawParticles();
 	drawFireworks();
+	m_controlPanel.draw(true);
 
 	// 操作説明
 	const String instructions = U"↑↓: Select  ENTER: Confirm  ESC: Title";
@@ -252,11 +253,14 @@ void ResultScene::setupFireworks()
 
 void ResultScene::updateInput()
 {
+	// ゲームパッド
+	Pad::PS4Pad pad{ 0 };
+
 	// 前回の選択を保存
 	const int previousSelection = m_selectedButton;
 
-	// キーボード操作
-	if (KeyUp.down() || KeyW.down())
+	// キーボード / パッドでの上下操作
+	if (KeyUp.down() || KeyW.down() || pad.dpadUpDown())
 	{
 		do {
 			m_selectedButton = (m_selectedButton - 1 + static_cast<int>(m_buttons.size())) % static_cast<int>(m_buttons.size());
@@ -267,12 +271,12 @@ void ResultScene::updateInput()
 			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		}
 	}
-	if (KeyDown.down() || KeyS.down())
+	if (KeyDown.down() || KeyS.down() || pad.dpadDownDown())
 	{
 		do {
 			m_selectedButton = (m_selectedButton + 1) % static_cast<int>(m_buttons.size());
 		} while (!m_buttons[m_selectedButton].enabled);
-
+		
 		if (m_selectedButton != previousSelection)
 		{
 			SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
@@ -294,16 +298,17 @@ void ResultScene::updateInput()
 		}
 	}
 
-	// 決定
+	// 決定（Enter/Space/マウス/パッド ×）
 	if (KeyEnter.down() || KeySpace.down() ||
-		(MouseL.down() && m_buttons[m_selectedButton].rect.contains(mousePos)))
+		(MouseL.down() && m_buttons[m_selectedButton].rect.contains(mousePos)) ||
+		pad.crossDown())
 	{
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		executeButton(m_selectedButton);
 	}
 
-	// ESCでタイトルに戻る
-	if (KeyEscape.down())
+	// 戻る（Esc / パッド ○）
+	if (KeyEscape.down() || pad.circleDown())
 	{
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Title;

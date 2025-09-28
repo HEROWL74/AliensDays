@@ -3,6 +3,8 @@
 #include "../Core/SceneBase.hpp"
 #include "../Stages/Stage.hpp"
 #include "../Player/PlayerColor.hpp"
+#include "../Systems/GamepadSystem.hpp"
+#include "../UI/ControlPanel.hpp"
 
 class GameOverScene final : public SceneBase
 {
@@ -46,6 +48,7 @@ private:
 
 	bool m_sePlayedOnce; //SE再生フラグを追加
 
+	ControlPanel m_controlPanel;
 public:
 	GameOverScene();
 	~GameOverScene() override = default;

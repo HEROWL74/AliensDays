@@ -15,7 +15,8 @@ enum class PlayerState
 	HipDrop,
 	Climb,
 	Exploding,  // 爆散状態
-	Dead        // 死亡状態
+	Dead,        // 死亡状態
+	Spawn
 };
 
 // プレイヤーの向き
@@ -142,6 +143,11 @@ private:
 	bool m_tutorialNotifiedFireball = false;
 	bool m_tutorialNotifiedHipDrop = false;
 
+	//スポーン用
+	bool m_isSpawning = false;
+	double m_spawnTimer = 0.0;
+	static constexpr double SPAWN_DURATION = 2.0;
+
 public:
 	Player();
 	Player(PlayerColor color, const Vec2& startPosition);
@@ -211,6 +217,7 @@ public:
 	int getFireballCount() const { return m_fireballCount; }
 	int getRemainingFireballs() const { return MAX_FIREBALLS_PER_STAGE - m_fireballCount; }
 	void resetFireballCount() { m_fireballCount = 0; }
+	Texture getFireballTexture() const { return m_fireballTexture; }
 
 	//ヒップドロップ関連メソッド
 	void startHipDrop();

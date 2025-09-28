@@ -68,6 +68,7 @@ void CreditScene::draw() const
 	drawParticleEffects();
 	drawCredits();
 	drawBackButton();
+	m_controlPanel.draw(true);
 
 	// 操作説明
 	const String instructions = U"↑↓: Manual Scroll  SPACE: Toggle Auto-scroll  ESC/Click BACK: Return";
@@ -192,37 +193,36 @@ void CreditScene::calculateTotalHeight()
 
 void CreditScene::updateInput()
 {
-	// マウスホバー検出
+	Pad::PS4Pad pad{ 0 };
 	const Vec2 mousePos = Cursor::Pos();
 	m_backButtonHovered = m_backButtonRect.contains(mousePos);
 
 	// 手動スクロール
-	if (KeyUp.pressed() || KeyW.pressed())
+	if (KeyUp.pressed() || KeyW.pressed() || pad.upPressed())
 	{
 		m_scrollOffset += 100.0 * Scene::DeltaTime();
 		m_autoScroll = false;
 	}
-	if (KeyDown.pressed() || KeyS.pressed())
+	if (KeyDown.pressed() || KeyS.pressed() || pad.downPressed())
 	{
 		m_scrollOffset -= 100.0 * Scene::DeltaTime();
 		m_autoScroll = false;
 	}
 
 	// オートスクロール切り替え
-	if (KeySpace.down())
+	if (KeySpace.down() || pad.triangleDown())
 	{
 		m_autoScroll = !m_autoScroll;
 	}
 
-	// 戻る操作
-	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered))
+	// 戻る
+	if (KeyEscape.down() || (MouseL.down() && m_backButtonHovered) || pad.circleDown())
 	{
-		// SE再生
 		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
 		m_nextScene = SceneType::Title;
 	}
 
-	// マウスホイールでスクロール
+	// マウスホイール
 	const double wheel = Mouse::Wheel();
 	if (wheel != 0.0)
 	{
@@ -230,6 +230,7 @@ void CreditScene::updateInput()
 		m_autoScroll = false;
 	}
 }
+
 
 void CreditScene::updateScroll()
 {

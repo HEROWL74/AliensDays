@@ -4,10 +4,9 @@
 namespace Pad {
 
 	struct Mapping {
-		// axes（必要なら他用途で使えるよう残しておく）
 		int  lx = 0;
 		int  ly = 1;
-		bool invertLy = false;   // あなたの環境は「上=+」なので false
+		bool invertLy = false;
 
 		// face buttons (×〇□△) の buttons[] インデックス
 		int cross = 1;           // ×
@@ -40,7 +39,7 @@ namespace Pad {
 
 	struct PS4Pad {
 		size_t  index = 0;
-		double  dead = 0.25;          // （D-Padはデジタルなので dead は主にスティック用）
+		double  dead = 0.25;
 		Mapping map = DefaultMapping();
 
 		inline PS4Pad(size_t idx = 0, double dz = 0.25) noexcept
@@ -57,7 +56,7 @@ namespace Pad {
 			return s3d::Gamepad(index).isConnected();
 		}
 
-		// --- もし他用途で左スティック値が必要なら使えるように残す（移動には使わない）
+
 		inline double lx() const noexcept {
 			const auto& a = s3d::Gamepad(index).axes;
 			if (map.lx < a.size()) {
@@ -87,7 +86,7 @@ namespace Pad {
 		inline bool dpadDownDown()  const noexcept { return _btnDown(map.dpadDown); }
 		inline bool dpadLeftDown()  const noexcept { return _btnDown(map.dpadLeft); }
 
-		// === ここがポイント：移動系は D-Pad を使用（左スティックから代替） ===
+		// 移動系は D-Pad を使用 ===
 		inline bool leftPressed()  const noexcept { return dpadLeftPressed(); }
 		inline bool rightPressed() const noexcept { return dpadRightPressed(); }
 		inline bool upPressed()    const noexcept { return dpadUpPressed(); }
@@ -153,4 +152,4 @@ namespace Pad {
 		}
 	};
 
-} // namespace Pad
+}

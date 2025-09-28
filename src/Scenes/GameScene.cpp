@@ -91,7 +91,8 @@ void GameScene::init()
 	// 地面のY座標は 13 * 64 = 832、プレイヤーの中心を地面から32px上に配置
 	const Vec2 startPosition = Vec2(3.0 * BLOCK_SIZE, 12.5 * BLOCK_SIZE); // 地面の上に立つ位置
 
-	m_player = std::make_unique<Player>(selectedColor, startPosition);
+	m_player = std::make_unique<Player>(selectedColor, startPosition - Vec2(0, 200)); // 上から登場
+	m_player->setState(PlayerState::Spawn);
 
 	// HUDシステムの初期化
 	m_hudSystem = std::make_unique<HUDSystem>();
@@ -273,15 +274,12 @@ void GameScene::update()
 		m_shaderEffects->enableChromatic(false);
 	}
 
-#ifdef _DEBUG
-	// デバッグ用ステージ切り替え
 	if (Key1.down()) loadStage(StageNumber::Stage1);
 	if (Key2.down()) loadStage(StageNumber::Stage2);
 	if (Key3.down()) loadStage(StageNumber::Stage3);
 	if (Key4.down()) loadStage(StageNumber::Stage4);
 	if (Key5.down()) loadStage(StageNumber::Stage5);
 	if (Key6.down()) loadStage(StageNumber::Stage6);
-#endif
 
 	// ESCキーでタイトルに戻る（爆散中でない場合のみ）
 	if (KeyEscape.down() && (!m_player || !m_player->isExploding()))
@@ -396,17 +394,18 @@ void GameScene::handleGoalReached()
 	s_resultTime = m_gameTime;
 
 	// 次のステージ番号を設定
-	if (static_cast<int>(m_currentStageNumber) < 6)
+	if (m_currentStageNumber == StageNumber::Stage6)
 	{
-		s_nextStageNumber = static_cast<StageNumber>(static_cast<int>(m_currentStageNumber) + 1);
+		// ボスステージへ直接遷移
+		m_nextScene = SceneType::Title;
 	}
 	else
 	{
-		s_nextStageNumber = m_currentStageNumber; // 最終ステージの場合
+		// 次のステージ番号を設定
+		s_nextStageNumber = static_cast<StageNumber>(static_cast<int>(m_currentStageNumber) + 1);
+		// 通常のリザルト画面へ遷移
+		m_nextScene = SceneType::Result;
 	}
-
-	// ★ 修正: 即座にリザルト画面へ遷移
-	m_nextScene = SceneType::Result;
 }
 
 void GameScene::draw() const

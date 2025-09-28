@@ -49,74 +49,42 @@ void TitleScene::init()
 
 void TitleScene::update()
 {
-	// ボタンホバータイマー更新
 	m_buttonHoverTimer += Scene::DeltaTime();
 
-	// BGMが停止している場合は再開
-	if (!SoundManager::GetInstance().isBGMPlaying(SoundManager::SoundType::BGM_TITLE))
-	{
-		SoundManager::GetInstance().playBGM(SoundManager::SoundType::BGM_TITLE);
-	}
-
-	// 前回の選択を保存
 	const int previousSelection = m_selectedButton;
+	Pad::PS4Pad pad{ 0 };
 
-	// キーボード操作
-	if (KeyUp.down() || KeyW.down())
+	// キーボード / パッドでの操作
+	if (KeyUp.down() || KeyW.down() || pad.dpadUpDown())
 	{
 		m_selectedButton = (m_selectedButton - 1 + static_cast<int>(m_buttons.size())) % static_cast<int>(m_buttons.size());
 		m_buttonHoverTimer = 0.0;
 	}
-	if (KeyDown.down() || KeyS.down())
+	if (KeyDown.down() || KeyS.down() || pad.dpadDownDown())
 	{
 		m_selectedButton = (m_selectedButton + 1) % static_cast<int>(m_buttons.size());
 		m_buttonHoverTimer = 0.0;
 	}
 
-	// 選択が変わった場合はSEを再生
-	if (m_selectedButton != previousSelection)
+	// 決定（Enter/Space/パッド ×）
+	if (KeyEnter.down() || KeySpace.down() || pad.crossDown())
 	{
-		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+		executeButton(m_selectedButton);
 	}
 
 	// マウス操作
 	const Vec2 mousePos = Cursor::Pos();
-	bool mouseHoverDetected = false;
-
 	for (size_t i = 0; i < m_buttons.size(); ++i)
 	{
 		if (m_buttons[i].rect.contains(mousePos))
 		{
-			if (m_selectedButton != static_cast<int>(i))
+			m_selectedButton = static_cast<int>(i);
+			if (MouseL.down())
 			{
-				m_selectedButton = static_cast<int>(i);
-				m_buttonHoverTimer = 0.0;
-				SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
+				executeButton(m_selectedButton);
 			}
-			mouseHoverDetected = true;
 			break;
 		}
-	}
-
-	// ボタンの実行
-	if (KeyEnter.down() || KeySpace.down() ||
-		(MouseL.down() && mouseHoverDetected))
-	{
-		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
-		executeButton(m_selectedButton);
-	}
-
-	// 従来のクイックスタート（互換性のため）
-	if (KeyG.down())
-	{
-		SoundManager::GetInstance().playSE(SoundManager::SoundType::SFX_SELECT);
-		m_nextScene = SceneType::Game;
-	}
-
-
-	if (KeyT.down())
-	{
-		requestSceneChange(SceneType::Tutorial);
 	}
 }
 
@@ -144,6 +112,8 @@ void TitleScene::draw() const
 
 	// ボタンの描画
 	drawButtons();
+
+	m_controlPanel.draw(false);
 
 	// 操作説明
 	drawControlInstructions();

@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "../Core/SceneBase.hpp"
+#include "../Systems/GamepadSystem.hpp"
+#include "../UI/ControlPanel.hpp"
 
 class OptionScene final : public SceneBase
 {
@@ -51,6 +53,7 @@ private:
 
 	Optional<SceneType> m_nextScene;
 
+	ControlPanel m_controlPanel;
 public:
 	OptionScene();
 	~OptionScene() override = default;

@@ -42,6 +42,7 @@ void TutorialScene::init()
 
 void TutorialScene::update()
 {
+	Pad::PS4Pad pad;
 	// ★ GameSceneの更新処理を実行
 	GameScene::update();
 
@@ -49,7 +50,7 @@ void TutorialScene::update()
 	m_panel.update();
 
 	// ★ 完了時の処理
-	if (m_step == Step::Done && (KeyEnter.down() || KeySpace.down())) {
+	if (m_step == Step::Done && (KeyEnter.down() || KeySpace.down() || pad.crossDown())) {
 		m_nextScene = SceneType::Title;
 	}
 }
@@ -68,7 +69,7 @@ void TutorialScene::draw() const
 		msgBox.draw(ColorF(0.0, 0.0, 0.0, 0.7));
 		msgBox.drawFrame(2, ColorF(1.0, 1.0, 0.6));
 
-		Font(20, Typeface::Bold)(U"ENTER または SPACE でタイトルへ")
+		Font(20, Typeface::Bold)(U"ENTER または SPACE または×ボタン でタイトルへ")
 			.drawAt(msgBox.center(), ColorF(1.0, 1.0, 0.8));
 	}
 }
@@ -94,23 +95,31 @@ void TutorialScene::goTo(Step s)
 	m_step = s;
 	switch (m_step) {
 	case Step::Move:
-		m_panel.show(U"← → または A/D で左右に動いてみよう！");
+		m_panel.show(U"← → または D-Pad 左右で動いてみよう！",
+			{ Texture(U"UI/InputIcon/playstation_dpad_horizontal.png") });
 		break;
+
 	case Step::Jump:
-		m_panel.show(U"SPACE または W でジャンプしてみよう！");
+		m_panel.show(U"SPACE または □ボタンでジャンプ！",
+			{ Texture(U"UI/InputIcon/playstation_button_color_square.png") });
 		break;
+
 	case Step::Stomp:
 		m_panel.show(U"スライムを上から踏んでみよう！");
 		break;
+
 	case Step::Fireball:
-		m_panel.show(U"F でファイアボール！敵を倒してみよう！");
+		m_panel.show(U"F または 〇ボタンでファイアボール！",
+			{ Texture(U"UI/InputIcon/playstation_button_color_circle.png") });
 		break;
+
 	case Step::Done:
 		m_panel.show(U"チュートリアル完了！よくできました！");
 		break;
 	}
 	spawnFor(m_step);
 }
+
 
 void TutorialScene::spawnFor(Step s)
 {

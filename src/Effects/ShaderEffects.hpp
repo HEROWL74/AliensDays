@@ -9,6 +9,8 @@ private:
 	PixelShader m_waveShader;
 	PixelShader m_chromaticShader;
 	PixelShader m_shockwaveShader;
+	
+
 
 	struct WaveParams
 	{
@@ -37,12 +39,14 @@ private:
 	ConstantBuffer<WaveParams> m_waveBuffer;
 	ConstantBuffer<ChromaticParams> m_chromaticBuffer;
 	ConstantBuffer<ShockwaveParams> m_shockwaveBuffer;
-
+	
+	
 	bool m_glowActive = false;
 	bool m_waveActive = false;
 	bool m_chromaticActive = false;
 	bool m_shockwaveActive = false;
 	bool m_isCapturing = false;
+	bool m_fireballActive = false;
 
 	double m_shockwaveTime = 0.0;
 	static constexpr double SHOCKWAVE_DURATION = 1.0;
@@ -55,6 +59,7 @@ public:
 		m_waveShader = HLSL(U"Shaders/Wave.hlsl", U"PS");
 		m_chromaticShader = HLSL(U"Shaders/ChromaticAberration.hlsl", U"PS");
 		m_shockwaveShader = HLSL(U"Shaders/Shockwave.hlsl", U"PS");
+		
 
 		if (!m_glowShader) Print << U"Failed to load Glow shader";
 		if (!m_waveShader) Print << U"Failed to load Wave shader";
