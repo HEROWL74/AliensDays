@@ -58,7 +58,7 @@
 - **C++20**：`noexcept`, `[[nodiscard]]`, `explicit`, `const auto&` などモダン記法
 - **Siv3D**：シーン管理・音声・UI・エフェクトなどを統合活用
 - **設計パターン**：
-  - Singleton：SceneManager, AudioManager
+  - Singleton：AudioManager
   - Factory：EnemyFactory, EffectFactory
   - Observer：イベント通知
   - Registry：ギミック動的登録
